@@ -317,5 +317,6 @@ impl Opcode<'_> {
         cpu.add_a_n();
     }
 
+    //Add to the 8-bit register A,  data from the absolute address specified by the 16-bit register HL.
     fn add_a_hl(&self, cpu: &mut Cpu) {}
 }
