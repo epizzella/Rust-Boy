@@ -308,15 +308,37 @@ impl Opcode<'_> {
     //0b10000zzz
     fn add_a_r(&self, cpu: &mut Cpu) {
         let register_z: usize = (self.opcode_byte & Z_REG_MASK) as usize;
-        cpu.add_a_r(register_z as usize);
+        cpu.add_a_r(register_z as usize, false);
     }
 
     //Add to the 8-bit register A, the immediate data n
-    //0b1100110
+    //0b11000110
     fn add_a_n(&self, cpu: &mut Cpu) {
-        cpu.add_a_n();
+        cpu.add_a_n(false);
     }
 
-    //Add to the 8-bit register A,  data from the absolute address specified by the 16-bit register HL.
-    fn add_a_hl(&self, cpu: &mut Cpu) {}
+    //Add to the 8-bit register A, data from the absolute address specified by the 16-bit register HL.
+    //10000110
+    fn add_a_hl(&self, cpu: &mut Cpu) {
+        cpu.add_a_hl(false);
+    }
+
+    //Add to the 8-bit register A, data from register zzz
+    //0b10000zzz
+    fn adc_a_r(&self, cpu: &mut Cpu) {
+        let register_z: usize = (self.opcode_byte & Z_REG_MASK) as usize;
+        cpu.add_a_r(register_z as usize, true);
+    }
+
+    //Add to the 8-bit register A, the immediate data n
+    //0b11001110
+    fn adc_a_n(&self, cpu: &mut Cpu) {
+        cpu.add_a_n(true);
+    }
+
+    //Add to the 8-bit register A, data from the absolute address specified by the 16-bit register HL.
+    //10001110
+    fn adc_a_hl(&self, cpu: &mut Cpu) {
+        cpu.add_a_hl(true);
+    }
 }

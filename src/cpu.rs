@@ -139,20 +139,37 @@ impl Cpu {
         self.sp = self.sp.wrapping_add(1);
     }
 
-    //add a register to register a
-    pub fn add_a_r(&mut self, reg_index: usize) {
+    //checks if register A is equal to zero and sets the zero flag in register F if true
+    #[inline]
+    fn check_for_zero(&mut self) {
+        //check for zero
+        if self.registers[Reg8bit::A as usize] == 0 {
+            self.registers[Reg8bit::F as usize] |= F_ZERO_SET;
+        } else {
+            self.registers[Reg8bit::F as usize] &= F_ZERO_CLR;
+        }
+    }
+
+    //checks if a carry occured for add with register A and sets the carry flag in register F if true
+    #[inline]
+    fn check_for_carry(&mut self) -> bool {
         //check for a carry
         if self.registers[Reg8bit::A as usize]
             > self.registers[Reg8bit::A as usize].wrapping_sub(0xff)
         {
             self.registers[Reg8bit::F as usize] |= F_CARRY_SET;
+            true
         } else {
             self.registers[Reg8bit::F as usize] &= F_CARRY_CLR;
+            false
         }
+    }
+
+    //checks if a half carry occured for add with register A and sets the half carry flag in register F if true
+    #[inline]
+    fn check_for_half_carry(&mut self, value: u8) {
         //mask off the bottom of both bytes add them together; then mask off the top of the result
-        let half_carry = ((self.registers[Reg8bit::A as usize] & 0xf)
-            + (self.registers[reg_index] & 0xf))
-            & 0x10;
+        let half_carry = ((self.registers[Reg8bit::A as usize] & 0xf) + (value & 0xf)) & 0x10;
 
         //Check for a half carry
         if half_carry == 0x10 {
@@ -160,90 +177,52 @@ impl Cpu {
         } else {
             self.registers[Reg8bit::F as usize] &= F_HALF_CARRY_CLR;
         }
+    }
+
+    //add a register to register a
+    pub fn add_a_r(&mut self, reg_index: usize, add_carry: bool) {
+        let carry = self.check_for_carry();
+        self.check_for_half_carry(self.registers[reg_index]);
 
         //do the add
-        self.registers[Reg8bit::A as usize] =
-            self.registers[Reg8bit::A as usize].wrapping_add(self.registers[reg_index]);
+        self.registers[Reg8bit::A as usize] = self.registers[Reg8bit::A as usize]
+            .wrapping_add(self.registers[reg_index])
+            .wrapping_add((add_carry && carry) as u8);
 
-        //check for zero
-        if self.registers[Reg8bit::A as usize] == 0 {
-            self.registers[Reg8bit::F as usize] |= F_ZERO_SET;
-        } else {
-            self.registers[Reg8bit::F as usize] &= F_ZERO_CLR;
-        }
+        self.check_for_zero();
 
         //set the add/sub flag
         self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR;
     }
 
-        //add a register to register a
-        pub fn add_a_hl(&mut self, reg_index: usize) {
-            //check for a carry
-            if self.registers[Reg8bit::A as usize]
-                > self.registers[Reg8bit::A as usize].wrapping_sub(0xff)
-            {
-                self.registers[Reg8bit::F as usize] |= F_CARRY_SET;
-            } else {
-                self.registers[Reg8bit::F as usize] &= F_CARRY_CLR;
-            }
-            //mask off the bottom of both bytes add them together; then mask off the top of the result
-            let half_carry = ((self.registers[Reg8bit::A as usize] & 0xf)
-                + (self.registers[reg_index] & 0xf))
-                & 0x10;
-    
-            //Check for a half carry
-            if half_carry == 0x10 {
-                self.registers[Reg8bit::F as usize] |= F_HALF_CARRY_SET;
-            } else {
-                self.registers[Reg8bit::F as usize] &= F_HALF_CARRY_CLR;
-            }
-    
-            //do the add
-            self.registers[Reg8bit::A as usize] =
-                self.registers[Reg8bit::A as usize].wrapping_add(self.registers[reg_index]);
-    
-            //check for zero
-            if self.registers[Reg8bit::A as usize] == 0 {
-                self.registers[Reg8bit::F as usize] |= F_ZERO_SET;
-            } else {
-                self.registers[Reg8bit::F as usize] &= F_ZERO_CLR;
-            }
-    
-            //set the add/sub flag
-            self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR;
-        }
-
-    //adds the next value in memory to A
-    pub fn add_a_n(&mut self) {
-        //check for a carry
-        if self.registers[Reg8bit::A as usize]
-            > self.registers[Reg8bit::A as usize].wrapping_sub(0xff)
-        {
-            self.registers[Reg8bit::F as usize] |= F_CARRY_SET;
-        } else {
-            self.registers[Reg8bit::F as usize] &= F_CARRY_CLR;
-        }
-        //mask off the bottom of both bytes add them together; then mask off the top of the result
-        let half_carry =
-            ((self.registers[Reg8bit::A as usize] & 0xf) + (self.memory[self.pc + 1] & 0xf)) & 0x10;
-
-        //Check for a half carry
-        if half_carry == 0x10 {
-            self.registers[Reg8bit::F as usize] |= F_HALF_CARRY_SET;
-        } else {
-            self.registers[Reg8bit::F as usize] &= F_HALF_CARRY_CLR;
-        }
+    //add a value from memory to register a
+    pub fn add_a_hl(&mut self, add_carry: bool) {
+        let carry = self.check_for_carry();
+        let mem_index = self.read_reg16(Reg16bit::HL) as usize;
+        self.check_for_half_carry(self.memory[mem_index]);
 
         //do the add
-        self.registers[Reg8bit::A as usize] =
-            self.registers[Reg8bit::A as usize].wrapping_add(self.memory[self.pc + 1]);
+        self.registers[Reg8bit::A as usize] = self.registers[Reg8bit::A as usize]
+            .wrapping_add(self.memory[mem_index])
+            .wrapping_add((add_carry && carry) as u8);
 
-        //check for zero
-        if self.registers[Reg8bit::A as usize] == 0 {
-            self.registers[Reg8bit::F as usize] |= F_ZERO_SET;
-        } else {
-            self.registers[Reg8bit::F as usize] &= F_ZERO_CLR;
-        }
+        self.check_for_zero();
+
+        //set the add/sub flag
+        self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR;
+    }
+
+    //adds the next value in memory to A
+    pub fn add_a_n(&mut self, add_carry: bool) {
+        let carry = self.check_for_carry();
+        self.check_for_half_carry(self.memory[self.pc + 1]);
+
+        //do the add
+        self.registers[Reg8bit::A as usize] = self.registers[Reg8bit::A as usize]
+            .wrapping_add(self.memory[self.pc + 1])
+            .wrapping_add((add_carry && carry) as u8);
+
+        self.check_for_zero();
 
         //set the add/sub flag
         self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR;
