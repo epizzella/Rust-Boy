@@ -5,7 +5,6 @@ pub struct Cpu {
     registers: [u8; 8],
     sp: usize,
     pc: usize,
-    //flag: FlagRegister,
     //Memory
     memory: [u8; 0xffff],
     /*
@@ -187,7 +186,7 @@ impl Cpu {
         //do the add
         self.registers[Reg8bit::A as usize] = self.registers[Reg8bit::A as usize]
             .wrapping_add(self.registers[reg_index])
-            .wrapping_add((add_carry && carry) as u8);
+            .wrapping_add((add_carry && carry) as u8); //if add_carry is true then this acts as adc instruction
 
         self.check_for_zero();
 
@@ -204,7 +203,7 @@ impl Cpu {
         //do the add
         self.registers[Reg8bit::A as usize] = self.registers[Reg8bit::A as usize]
             .wrapping_add(self.memory[mem_index])
-            .wrapping_add((add_carry && carry) as u8);
+            .wrapping_add((add_carry && carry) as u8); //if add_carry is true then this acts as adc instruction
 
         self.check_for_zero();
 
@@ -220,7 +219,7 @@ impl Cpu {
         //do the add
         self.registers[Reg8bit::A as usize] = self.registers[Reg8bit::A as usize]
             .wrapping_add(self.memory[self.pc + 1])
-            .wrapping_add((add_carry && carry) as u8);
+            .wrapping_add((add_carry && carry) as u8); //if add_carry is true then this acts as adc instruction
 
         self.check_for_zero();
 
@@ -244,7 +243,7 @@ const BANK_00_END: usize = 0x3fff;
 const BANK_01_START: usize = 0x4000;
 const BANK_01_END: usize = 0x7fff;
 const VRAM_START: usize = 0x8000;
-const VRAM_END: usize = 0x9fff;
+pub const VRAM_END: usize = 0x9fff;
 const EXTERNAL_RAM_START: usize = 0xa000;
 const EXTERNAL_RAM_END: usize = 0xbfff;
 const WRAM_BANK_0_START: usize = 0xc000;

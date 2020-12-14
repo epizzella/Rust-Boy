@@ -203,7 +203,7 @@ impl Opcode<'_> {
     //16-bit load instructions transfer two bytes of data between one 16-bit register
     //and two sequential locations in memory.
     //0b00000001 + LSB of nn + MSB of nn
-    fn load_BC_nn(&self, cpu: &mut Cpu) {
+    fn load_bc_nn(&self, cpu: &mut Cpu) {
         let pc = cpu.read_pc();
         cpu.write_reg16_fast(Reg16bit::BC, cpu.read_memory(pc), cpu.read_memory(pc + 1))
     }
@@ -211,7 +211,7 @@ impl Opcode<'_> {
     //16-bit load instructions transfer two bytes of data between one 16-bit register
     //and two sequential locations in memory.
     //0b00010001 + LSB of nn + MSB of nn
-    fn load_DE_nn(&self, cpu: &mut Cpu) {
+    fn load_de_nn(&self, cpu: &mut Cpu) {
         let pc = cpu.read_pc();
         cpu.write_reg16_fast(Reg16bit::DE, cpu.read_memory(pc), cpu.read_memory(pc + 1))
     }
@@ -219,7 +219,7 @@ impl Opcode<'_> {
     //16-bit load instructions transfer two bytes of data between one 16-bit register
     //and two sequential locations in memory.
     //0b00100001 + LSB of nn + MSB of nn
-    fn load_HL_nn(&self, cpu: &mut Cpu) {
+    fn load_hl_nn(&self, cpu: &mut Cpu) {
         let pc = cpu.read_pc();
         cpu.write_reg16_fast(Reg16bit::HL, cpu.read_memory(pc), cpu.read_memory(pc + 1))
     }
