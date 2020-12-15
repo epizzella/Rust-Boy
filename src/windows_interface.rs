@@ -18,6 +18,6 @@ pub fn load_rom(file_path: &str, cpu: &mut Cpu) {
             cpu.write_memory(i, buffer[i]);
         }
     } else {
-        println!("Rom size greater than end of vram: {}", buffer_size);
+        println!("Rom size ({} bytes) greater than end of vram.", buffer_size);
     }
 }

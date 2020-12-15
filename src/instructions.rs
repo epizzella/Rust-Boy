@@ -9,7 +9,7 @@ struct Opcode<'a> {
     opcode_name: &'a str,
     opcode_byte: u8, //hex representatoin of the opcode
     number_of_cycles: u8,
-    length: u8, //in bytes
+    increase_pc_by: u8, //in bytes
     handler: fn(&Opcode, Cpu),
 }
 
@@ -341,4 +341,6 @@ impl Opcode<'_> {
     fn adc_a_hl(&self, cpu: &mut Cpu) {
         cpu.add_a_hl(true);
     }
+
+    
 }
