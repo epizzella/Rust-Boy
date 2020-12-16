@@ -342,5 +342,131 @@ impl Opcode<'_> {
         cpu.add_a_hl(true);
     }
 
-    
+    //Sub from the 8-bit register A, data from register zzz
+    //0b10010zzz
+    fn sub_a_r(&self, cpu: &mut Cpu) {
+        let register_z: usize = (self.opcode_byte & Z_REG_MASK) as usize;
+        cpu.sub_a_r(register_z as usize, false);
+    }
+
+    //Sub from the 8-bit register A, the immediate data n
+    //0b11010111
+    fn sub_a_n(&self, cpu: &mut Cpu) {
+        cpu.sub_a_n(false);
+    }
+
+    //Sub from the 8-bit register A, data from the absolute address specified by the 16-bit register HL.
+    //0b10010110
+    fn sub_a_hl(&self, cpu: &mut Cpu) {
+        cpu.sub_a_hl(false);
+    }
+
+    //Sub from the 8-bit register A, data from register zzz
+    //0b10010zzz
+    fn sbc_a_r(&self, cpu: &mut Cpu) {
+        let register_z: usize = (self.opcode_byte & Z_REG_MASK) as usize;
+        cpu.sub_a_r(register_z as usize, true);
+    }
+
+    //Sub from the 8-bit register A, the immediate data n
+    //0b11011110
+    fn sbc_a_n(&self, cpu: &mut Cpu) {
+        cpu.sub_a_n(true);
+    }
+
+    //Sub from the 8-bit register A, data from the absolute address specified by the 16-bit register HL.
+    //0b10011110
+    fn sbc_a_hl(&self, cpu: &mut Cpu) {
+        cpu.sub_a_hl(true);
+    }
+
+    //And to the 8-bit register A, data from register zzz
+    //0b10100zzz
+    fn and_a_r(&self, cpu: &mut Cpu) {
+        let register_z: usize = (self.opcode_byte & Z_REG_MASK) as usize;
+        cpu.and_a_r(register_z);
+    }
+
+    //And to the 8-bit register A, the immediate data n
+    //0b11100zzz
+    fn and_a_n(&self, cpu: &mut Cpu) {
+        cpu.and_a_n();
+    }
+
+    //And to the 8-bit register A, data from the absolute address specified by the 16-bit register HL.
+    //0b10100110
+    fn and_a_hl(&self, cpu: &mut Cpu) {
+        cpu.and_a_hl();
+    }
+
+    //Xor to the 8-bit register A, data from register zzz
+    //0b10101zzz
+    fn xor_a_r(&self, cpu: &mut Cpu) {
+        let register_z: usize = (self.opcode_byte & Z_REG_MASK) as usize;
+        cpu.xor_a_r(register_z);
+    }
+
+    //Xor to the 8-bit register A, the immediate data n
+    //0b11101110
+    fn xor_a_n(&self, cpu: &mut Cpu) {
+        cpu.xor_a_n();
+    }
+
+    //Xor to the 8-bit register A, data from the absolute address specified by the 16-bit register HL.
+    //0b10101110
+    fn xor_a_hl(&self, cpu: &mut Cpu) {
+        cpu.xor_a_hl();
+    }
+
+    //Or to the 8-bit register A, data from register zzz
+    //0b10111zzz
+    fn or_a_r(&self, cpu: &mut Cpu) {
+        let register_z: usize = (self.opcode_byte & Z_REG_MASK) as usize;
+        cpu.or_a_r(register_z);
+    }
+
+    //Or to the 8-bit register A, the immediate data n
+    //0b11110110
+    fn or_a_n(&self, cpu: &mut Cpu) {
+        cpu.or_a_n();
+    }
+
+    //Or to the 8-bit register A, data from the absolute address specified by the 16-bit register HL.
+    //10110110
+    fn or_a_hl(&self, cpu: &mut Cpu) {
+        cpu.or_a_hl();
+    }
+
+    //Compare to the 8-bit register A, data from register zzz
+    fn cp_a_r(&self, cpu: &mut Cpu) {
+        let value = cpu.read_reg8(Reg8bit::A as usize);
+        let register_z: usize = (self.opcode_byte & Z_REG_MASK) as usize;
+        cpu.sub_a_r(register_z as usize, false);
+        cpu.write_reg8(Reg8bit::A as usize, value);
+    }
+
+    //Compare to the 8-bit register A, the immediate data n
+    fn cp_a_n(&self, cpu: &mut Cpu) {
+        let value = cpu.read_reg8(Reg8bit::A as usize);
+        cpu.sub_a_n(false);
+        cpu.write_reg8(Reg8bit::A as usize, value);
+    }
+
+    //Compare the 8-bit register A, data from the absolute address specified by the 16-bit register HL.
+    fn cp_a_hl(&self, cpu: &mut Cpu) {
+        let value = cpu.read_reg8(Reg8bit::A as usize);
+        cpu.sub_a_hl(false);
+        cpu.write_reg8(Reg8bit::A as usize, value);
+    }
+
+    //Incerement register r by 1
+    fn inc_r(&self, cpu: &mut Cpu) {
+        let register_y: usize = ((self.opcode_byte & Y_REG_MASK) >> 3) as usize;
+        cpu.increment_r(register_y);
+    }
+
+    //Increment data from the absolute address specified by the 16-bit register HL by 1.
+    fn inc_hl(&self, cpu: &mut Cpu) {
+        cpu.increment_memory(cpu.read_reg16(Reg16bit::HL) as usize);
+    }
 }
