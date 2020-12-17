@@ -1,3 +1,5 @@
+use crate::opcode_table::*;
+
 pub struct Cpu {
     //registers -- note: that A is the accumulator.  All maths are done through this reg.
     // 0  1  2  3  4  5  6  7
@@ -66,14 +68,14 @@ impl Cpu {
     }
 
     //read 16 bit register
-    pub fn read_reg16(&self, reg_16: Reg16bit) -> u16 {
-        let reg: u16 = ((self.registers[reg_16 as usize] as u16) << 8)
-            | (self.registers[reg_16 as usize + 1] as u16);
+    pub fn read_reg16(&self, reg_16: usize) -> u16 {
+        let reg: u16 =
+            ((self.registers[reg_16] as u16) << 8) | (self.registers[reg_16 as usize + 1] as u16);
         reg
     }
 
     //write to 16 bit register
-    pub fn write_reg16(&mut self, reg_16: Reg16bit, nn: u16) {
+    pub fn write_reg16(&mut self, reg_16: usize, nn: u16) {
         let msb = ((0xff00 & nn) >> 8) as u8;
         let lsb = (0x00ff & nn) as u8;
         self.registers[reg_16 as usize] = msb;
@@ -81,7 +83,7 @@ impl Cpu {
     }
 
     //write two u8s to 16 bit register
-    pub fn write_reg16_fast(&mut self, reg_16: Reg16bit, lsb: u8, msb: u8) {
+    pub fn write_reg16_fast(&mut self, reg_16: usize, lsb: u8, msb: u8) {
         self.registers[reg_16 as usize] = msb;
         self.registers[reg_16 as usize + 1] = lsb;
     }
@@ -134,7 +136,11 @@ impl Cpu {
     //pop 16bit regsiter off of the stack
     pub fn pop_rr(&mut self, reg_16: Reg16bit) {
         self.sp = self.sp.wrapping_add(1);
-        self.write_reg16_fast(reg_16, self.memory[self.sp], self.memory[self.sp + 1]);
+        self.write_reg16_fast(
+            reg_16 as usize,
+            self.memory[self.sp],
+            self.memory[self.sp + 1],
+        );
         self.sp = self.sp.wrapping_add(1);
     }
 
@@ -196,9 +202,9 @@ impl Cpu {
 
     //checks if a half carry occured for add with register A and sets the half carry flag in register F if true
     #[inline]
-    fn check_for_half_carry(&mut self, reg: Reg8bit, addend: u8, carry: u8) {
-        //mask off the bottom of both bytes add them together; then mask off the top of the result
-        let half_carry = (self.registers[reg as usize] & 0xf) + (addend & 0xf) + carry;
+    fn check_for_half_carry(&mut self, addend_1: u8, addend_2: u8, carry: u8) {
+        //mask off the bottom of both bytes add them together
+        let half_carry = (addend_1 & 0xf) + (addend_2 & 0xf) + carry;
 
         //Check for a half carry
         if half_carry > 0xf {
@@ -210,11 +216,9 @@ impl Cpu {
 
     //checks if a half carry occured for add with register A and sets the half carry flag in register F if true
     #[inline]
-    fn check_for_half_carry_sub(&mut self, addend: u8, carry: u8) {
-        //mask off the bottom of both bytes subtract them; then mask off the top of the result
-        let half_carry = (self.registers[Reg8bit::A as usize] & 0xf) as i16
-            - (addend & 0xf) as i16
-            - carry as i16;
+    fn check_for_half_carry_sub(&mut self, minuend: u8, subtrahend: u8, carry: u8) {
+        //mask off the bottom of both bytes subtract them
+        let half_carry = (minuend & 0xf) as i16 - (subtrahend & 0xf) as i16 - carry as i16;
 
         //Check for a half carry
         if half_carry < 0 {
@@ -236,7 +240,7 @@ impl Cpu {
             .wrapping_add(carry_value); //if add_carry is true then this acts as adc instruction
 
         self.check_for_carry(addend, carry_value);
-        self.check_for_half_carry(Reg8bit::A, addend, carry_value);
+        self.check_for_half_carry(self.registers[Reg8bit::A as usize], addend, carry_value);
         self.check_a_for_zero();
 
         //set the add/sub flag
@@ -245,7 +249,7 @@ impl Cpu {
 
     //add a value from memory to register a
     pub fn add_a_hl(&mut self, add_carry: bool) {
-        let mem_index = self.read_reg16(Reg16bit::HL) as usize;
+        let mem_index = self.read_reg16(Reg16bit::HL as usize) as usize;
         let addend = self.registers[mem_index];
         let carry_flag = self.registers[Reg8bit::F as usize] & F_CARRY_SET > 0;
         let carry_value = (carry_flag && add_carry) as u8;
@@ -256,7 +260,7 @@ impl Cpu {
             .wrapping_add(carry_value); //if add_carry is true then this acts as adc instruction
 
         self.check_for_carry(addend, carry_value);
-        self.check_for_half_carry(Reg8bit::A, addend, carry_value);
+        self.check_for_half_carry(self.registers[Reg8bit::A as usize], addend, carry_value);
         self.check_a_for_zero();
 
         //set the add/sub flag
@@ -275,7 +279,7 @@ impl Cpu {
             .wrapping_add(carry_value); //if add_carry is true then this acts as adc instruction
 
         self.check_for_carry(addend, carry_value);
-        self.check_for_half_carry(Reg8bit::A, addend, carry_value);
+        self.check_for_half_carry(self.registers[Reg8bit::A as usize], addend, carry_value);
         self.check_a_for_zero();
 
         //set the add/sub flag
@@ -294,7 +298,11 @@ impl Cpu {
             .wrapping_sub(barrow_value); //if add_carry is true then this acts as sbc instruction
 
         self.check_for_carry_sub(subtrahend, barrow_value);
-        self.check_for_half_carry_sub(subtrahend, barrow_value);
+        self.check_for_half_carry_sub(
+            self.registers[Reg8bit::A as usize],
+            subtrahend,
+            barrow_value,
+        );
         self.check_a_for_zero();
 
         self.registers[Reg8bit::F as usize] |= F_Add_SUB_SET;
@@ -302,7 +310,7 @@ impl Cpu {
 
     //sub a register to register A
     pub fn sub_a_hl(&mut self, add_barrow: bool) {
-        let mem_index = self.read_reg16(Reg16bit::HL) as usize;
+        let mem_index = self.read_reg16(Reg16bit::HL as usize) as usize;
         let subtrahend = self.registers[mem_index];
         let carry_flag = self.registers[Reg8bit::F as usize] & F_CARRY_SET > 0;
         let barrow_value = (carry_flag && add_barrow) as u8;
@@ -313,7 +321,11 @@ impl Cpu {
             .wrapping_sub(barrow_value); //if add_carry is true then this acts as sbc instruction
 
         self.check_for_carry_sub(subtrahend, barrow_value);
-        self.check_for_half_carry_sub(subtrahend, barrow_value);
+        self.check_for_half_carry_sub(
+            self.registers[Reg8bit::A as usize],
+            subtrahend,
+            barrow_value,
+        );
         self.check_a_for_zero();
 
         self.registers[Reg8bit::F as usize] |= F_Add_SUB_SET;
@@ -331,7 +343,11 @@ impl Cpu {
             .wrapping_sub(barrow_value); //if add_carry is true then this acts as sbc instruction
 
         self.check_for_carry_sub(subtrahend, barrow_value);
-        self.check_for_half_carry_sub(subtrahend, barrow_value);
+        self.check_for_half_carry_sub(
+            self.registers[Reg8bit::A as usize],
+            subtrahend,
+            barrow_value,
+        );
         self.check_a_for_zero();
 
         self.registers[Reg8bit::F as usize] |= F_Add_SUB_SET;
@@ -357,7 +373,7 @@ impl Cpu {
     }
 
     pub fn and_a_hl(&mut self) {
-        let reg_index = self.read_reg16(Reg16bit::HL) as usize;
+        let reg_index = self.read_reg16(Reg16bit::HL as usize) as usize;
         self.registers[Reg8bit::A as usize] &= self.registers[reg_index];
 
         self.check_a_for_zero();
@@ -386,7 +402,7 @@ impl Cpu {
     }
 
     pub fn xor_a_hl(&mut self) {
-        let reg_index = self.read_reg16(Reg16bit::HL) as usize;
+        let reg_index = self.read_reg16(Reg16bit::HL as usize) as usize;
         self.registers[Reg8bit::A as usize] ^= self.registers[reg_index];
 
         self.check_a_for_zero();
@@ -415,7 +431,7 @@ impl Cpu {
     }
 
     pub fn or_a_hl(&mut self) {
-        let reg_index = self.read_reg16(Reg16bit::HL) as usize;
+        let reg_index = self.read_reg16(Reg16bit::HL as usize) as usize;
         self.registers[Reg8bit::A as usize] |= self.registers[reg_index];
 
         self.check_a_for_zero();
@@ -424,23 +440,131 @@ impl Cpu {
         self.registers[Reg8bit::F as usize] &= F_CARRY_CLR;
     }
 
-    //Increment
+    //Increment register
     pub fn increment_r(&mut self, y: usize) {
         self.registers[y] = self.registers[y].wrapping_add(1);
 
         self.check_a_for_zero();
         self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR;
-        self.check_for_half_carry(Reg8bit::A, 1, 0);
+        self.check_for_half_carry(self.registers[y], 1, 0);
     }
 
-    //Increment
+    //Increment memory
     pub fn increment_memory(&mut self, memory_index: usize) {
         self.memory[memory_index] = self.memory[memory_index].wrapping_add(1);
 
         self.check_value_for_zero(self.memory[memory_index]);
         self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR;
-        self.check_for_half_carry(Reg8bit::A, 1, 0);
+        self.check_for_half_carry(self.memory[memory_index], 1, 0);
     }
+
+    //Decrement register
+    pub fn decrement_r(&mut self, y: usize) {
+        self.registers[y] = self.registers[y].wrapping_sub(1);
+
+        self.check_a_for_zero();
+        self.registers[Reg8bit::F as usize] |= F_Add_SUB_SET;
+        self.check_for_half_carry_sub(self.registers[y], 1, 0);
+    }
+
+    //Decrement memory
+    pub fn decrement_memory(&mut self, memory_index: usize) {
+        self.memory[memory_index] = self.memory[memory_index].wrapping_sub(1);
+
+        self.check_value_for_zero(self.memory[memory_index]);
+        self.registers[Reg8bit::F as usize] |= F_Add_SUB_SET;
+        self.check_for_half_carry_sub(self.memory[memory_index], 1, 0);
+    }
+
+    //flip the bits in register A
+    pub fn complement_a(&mut self) {
+        self.registers[Reg8bit::A as usize] ^= 0xff;
+        self.registers[Reg8bit::F as usize] |= F_Add_SUB_SET;
+        self.registers[Reg8bit::F as usize] |= F_HALF_CARRY_SET;
+    }
+
+    //checks if a carry occured for add with register A and sets the carry flag in register F if true
+    #[inline]
+    fn check_for_carry_16bit(&mut self, addend: u16) {
+        let z = self.read_reg16(Reg16bit::HL as usize).checked_add(addend);
+
+        match z {
+            Some(_) => {
+                self.registers[Reg8bit::F as usize] &= F_CARRY_CLR;
+            }
+            None => {
+                self.registers[Reg8bit::F as usize] |= F_CARRY_SET;
+            }
+        }
+    }
+
+    //checks if a half carry occured for add with register A and sets the half carry flag in register F if true
+    #[inline]
+    fn check_for_half_carry_16bit(&mut self, reg: u16, addend: u16) {
+        //mask off the bottom of both numbers add them together; then mask off the top of the result
+        let half_carry = (reg & 0xff) + (addend & 0xff);
+
+        //Check for a half carry
+        if half_carry > 0xff {
+            self.registers[Reg8bit::F as usize] |= F_HALF_CARRY_SET;
+        } else {
+            self.registers[Reg8bit::F as usize] &= F_HALF_CARRY_CLR;
+        }
+    }
+
+    pub fn add_hl_rr(&mut self, register_index: usize) {
+        let hl = self.read_reg16(Reg16bit::HL as usize);
+        let addend = self.read_reg16(register_index);
+        let sum = hl.wrapping_add(addend);
+
+        self.check_for_carry_16bit(addend);
+        self.check_for_half_carry_16bit(hl, addend);
+        self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR;
+    }
+
+    pub fn add_hl_sp(&mut self) {
+        let hl = self.read_reg16(Reg16bit::HL as usize);
+        let addend = self.sp as u16;
+        let sum = hl.wrapping_add(addend);
+
+        self.check_for_carry_16bit(addend);
+        self.check_for_half_carry_16bit(hl, addend);
+        self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR;
+    }
+
+    pub fn increment_sp(&mut self) {
+        self.sp = self.sp.wrapping_add(1);
+    }
+
+    pub fn decrement_sp(&mut self) {
+        self.sp = self.sp.wrapping_sub(1);
+    }
+
+    pub fn add_sp_dd(&mut self) -> u16{
+        let addend = (self.memory[self.pc + 1] as i8) as i16;
+        let sum = (self.sp as i16).wrapping_add(addend) as u16;
+
+        let z = (self.sp as i16).checked_add(addend);
+        match z {
+            Some(_) => {
+                self.registers[Reg8bit::F as usize] &= F_CARRY_CLR;
+            }
+            None => {
+                self.registers[Reg8bit::F as usize] |= F_CARRY_SET;
+            }
+        }
+
+        if (sum & 0xf) < (self.sp as u16 & 0xf) {
+            self.registers[Reg8bit::F as usize] |= F_HALF_CARRY_SET;
+        } else {
+            self.registers[Reg8bit::F as usize] |= F_HALF_CARRY_CLR;
+        }
+        self.registers[Reg8bit::F as usize] &= F_ZERO_CLR;
+        self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR;
+
+        sum
+    }
+
 }
 
 const F_ZERO_SET: u8 = 0x80; //1000 0000

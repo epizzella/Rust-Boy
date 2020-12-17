@@ -1,5 +1,6 @@
 mod cpu;
 mod instructions;
+mod opcode_table;
 mod user_interface;
 mod windows_interface;
 
