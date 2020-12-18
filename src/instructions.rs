@@ -6,8 +6,8 @@ const P_REG_MASK: u8 = 0x30;
 const LDH_ADDR_MSB_MASK: usize = 0xff00;
 
 pub struct Opcode {
-    opcode_name: String,
     opcode_byte: u8, //hex representatoin of the opcode
+    opcode_name: String,
     number_of_cycles: u8,
     increase_pc_by: u8, //in bytes
     handler: fn(&Self, &mut Cpu),
@@ -18,8 +18,8 @@ pub struct Opcode {
 /**********8 bit load instructions**********/
 impl Opcode {
     pub fn new(
-        opcode_name: String,
         opcode: u8,
+        opcode_name: String,
         cycles: u8,
         length: u8,
         function: fn(&Self, &mut Cpu),
@@ -163,7 +163,7 @@ impl Opcode {
     //Load to the 8-bit A register, data from the absolute address specified by the 16-bit register HL. The value of
     //HL is decremented after the memory read.
     //0b00111010/0x3A
-    pub fn load_a_hl_decrement(&self, cpu: &mut Cpu) {
+    pub fn load_a_hl_dec(&self, cpu: &mut Cpu) {
         let index = cpu.read_reg16(Reg16bit::HL as usize) as usize;
         cpu.write_reg8(Reg8bit::A as usize, cpu.read_memory(index));
         cpu.write_reg16(Reg16bit::HL as usize, index as u16 - 1);
@@ -172,7 +172,7 @@ impl Opcode {
     //Load to the absolute address specified by the 16-bit register HL, data from the 8-bit A register. The value of
     //HL is decremented after the memory write.
     //0b00110010/0x32
-    pub fn load_hl_a_decrement(&self, cpu: &mut Cpu) {
+    pub fn load_hl_a_dec(&self, cpu: &mut Cpu) {
         let index = cpu.read_reg16(Reg16bit::HL as usize) as usize;
         cpu.write_memory(index, cpu.read_reg8(Reg8bit::A as usize));
         cpu.write_reg16(Reg16bit::HL as usize, index as u16 - 1);
@@ -181,7 +181,7 @@ impl Opcode {
     //Load to the 8-bit A register, data from the absolute address specified by the 16-bit register HL. The value of
     //HL is incremented after the memory read.
     //0b00101010/0x2A
-    pub fn load_a_hl_increment(&self, cpu: &mut Cpu) {
+    pub fn load_a_hl_inc(&self, cpu: &mut Cpu) {
         let index = cpu.read_reg16(Reg16bit::HL as usize) as usize;
         cpu.write_reg8(Reg8bit::A as usize, cpu.read_memory(index));
         cpu.write_reg16(Reg16bit::HL as usize, index as u16 + 1);
@@ -190,7 +190,7 @@ impl Opcode {
     //Load to the absolute address specified by the 16-bit register HL, data from the 8-bit A register. The value of
     //HL is incremented after the memory write.
     //0b00100010/0x22
-    pub fn load_hl_a_incement(&self, cpu: &mut Cpu) {
+    pub fn load_hl_a_inc(&self, cpu: &mut Cpu) {
         let index = cpu.read_reg16(Reg16bit::HL as usize) as usize;
         cpu.write_memory(index, cpu.read_reg8(Reg8bit::A as usize));
         cpu.write_reg16(Reg16bit::HL as usize, index as u16 + 1);
@@ -557,6 +557,8 @@ impl Opcode {
         let value = cpu.add_sp_dd();
         cpu.write_reg16(Reg16bit::HL as usize, value);
     }
+
+    /********** Rotate and Shift Commands **********/
 
     /********** CPU-Control commands **********/
 
