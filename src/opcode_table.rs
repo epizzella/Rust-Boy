@@ -1,7 +1,7 @@
 use crate::instructions::*;
 
 pub struct OpcodeTable {
-    table: [Opcode; 160],
+    table: [Opcode; 256],
 }
 
 impl OpcodeTable {
@@ -168,6 +168,103 @@ impl OpcodeTable {
                 Opcode::new(0x9D, "SBC A, L".to_string(), 1, 1, Opcode::sbc_a_r),
                 Opcode::new(0x9E, "SBC A, (HL)".to_string(), 1, 1, Opcode::sbc_a_hl),
                 Opcode::new(0x9F, "SBC A, A".to_string(), 1, 1, Opcode::sbc_a_r),
+                Opcode::new(0xA0, "AND A, B".to_string(), 1, 1, Opcode::and_a_r),
+                Opcode::new(0xA1, "AND A, C".to_string(), 1, 1, Opcode::and_a_r),
+                Opcode::new(0xA2, "AND A, D".to_string(), 1, 1, Opcode::and_a_r),
+                Opcode::new(0xA3, "AND A, E".to_string(), 1, 1, Opcode::and_a_r),
+                Opcode::new(0xA4, "AND A, H".to_string(), 1, 1, Opcode::and_a_r),
+                Opcode::new(0xA5, "AND A, L".to_string(), 1, 1, Opcode::and_a_r),
+                Opcode::new(0xA6, "AND A, (HL)".to_string(), 1, 1, Opcode::and_a_hl),
+                Opcode::new(0xA7, "AND A, A".to_string(), 1, 1, Opcode::xor_a_r),
+                Opcode::new(0xA8, "XOR A, B".to_string(), 1, 1, Opcode::xor_a_r),
+                Opcode::new(0xA9, "XOR A, C".to_string(), 1, 1, Opcode::xor_a_r),
+                Opcode::new(0xAA, "XOR A, D".to_string(), 1, 1, Opcode::xor_a_r),
+                Opcode::new(0xAB, "XOR A, E".to_string(), 1, 1, Opcode::xor_a_r),
+                Opcode::new(0xAC, "XOR A, H".to_string(), 1, 1, Opcode::xor_a_r),
+                Opcode::new(0xAD, "XOR A, L".to_string(), 1, 1, Opcode::xor_a_r),
+                Opcode::new(0xAE, "XOR A, (HL)".to_string(), 1, 1, Opcode::xor_a_hl),
+                Opcode::new(0xAF, "XOR A, A".to_string(), 1, 1, Opcode::xor_a_r),
+                Opcode::new(0xB0, "OR A, B".to_string(), 1, 1, Opcode::or_a_r),
+                Opcode::new(0xB1, "OR A, C".to_string(), 1, 1, Opcode::or_a_r),
+                Opcode::new(0xB2, "OR A, D".to_string(), 1, 1, Opcode::or_a_r),
+                Opcode::new(0xB3, "OR A, E".to_string(), 1, 1, Opcode::or_a_r),
+                Opcode::new(0xB4, "OR A, H".to_string(), 1, 1, Opcode::or_a_r),
+                Opcode::new(0xB5, "OR A, L".to_string(), 1, 1, Opcode::or_a_r),
+                Opcode::new(0xB6, "OR A, (HL)".to_string(), 1, 1, Opcode::or_a_hl),
+                Opcode::new(0xB7, "OR A, A".to_string(), 1, 1, Opcode::or_a_r),
+                Opcode::new(0xB8, "CP A, B".to_string(), 1, 1, Opcode::cp_a_r),
+                Opcode::new(0xB9, "CP A, C".to_string(), 1, 1, Opcode::cp_a_r),
+                Opcode::new(0xBA, "CP A, D".to_string(), 1, 1, Opcode::cp_a_r),
+                Opcode::new(0xBB, "CP A, E".to_string(), 1, 1, Opcode::cp_a_r),
+                Opcode::new(0xBC, "CP A, H".to_string(), 1, 1, Opcode::cp_a_r),
+                Opcode::new(0xBD, "CP A, L".to_string(), 1, 1, Opcode::cp_a_r),
+                Opcode::new(0xBE, "CP A, (HL)".to_string(), 1, 1, Opcode::cp_a_hl),
+                Opcode::new(0xBF, "CP A, A".to_string(), 1, 1, Opcode::cp_a_r),
+                Opcode::new(0xC0, "RET NZ".to_string(), 2, 1, Opcode::nop), //Place holder nop
+                Opcode::new(0xC1, "POP BC".to_string(), 3, 1, Opcode::pop_bc),
+                Opcode::new(0xC2, "JP NZ, u16".to_string(), 3, 1, Opcode::nop), //Place holder nop
+                Opcode::new(0xC3, "JP u16".to_string(), 1, 1, Opcode::nop),     //Place holder nop
+                Opcode::new(0xC4, "CALL NZ, u16".to_string(), 1, 1, Opcode::nop), //Place holder nop
+                Opcode::new(0xC5, "PUSH BC".to_string(), 4, 1, Opcode::push_bc),
+                Opcode::new(0xC6, "ADD A, u8".to_string(), 1, 1, Opcode::nop),
+                Opcode::new(0xC7, "RST 00h".to_string(), 4, 1, Opcode::nop), // Place Holder nop
+                Opcode::new(0xC8, "RET Z".to_string(), 2, 1, Opcode::nop),   //place holder nop
+                Opcode::new(0xC9, "RET".to_string(), 4, 1, Opcode::nop),     //Place holder nop
+                Opcode::new(0xCA, "JP Z, u16".to_string(), 3, 3, Opcode::nop), //place holder nop
+                //CB Is a prefix for the second second of 256 instructions.  It should never be executed from this table
+                Opcode::new(0xCB, "PREFIX CB".to_string(), 3, 1, Opcode::nop),
+                Opcode::new(0xCC, "CALL Z, u16".to_string(), 3, 3, Opcode::nop), //place holder nop
+                Opcode::new(0xCD, "CALL u16".to_string(), 6, 3, Opcode::nop),    //place holder nop
+                Opcode::new(0xCE, "ADC A, u8".to_string(), 2, 2, Opcode::adc_a_n),
+                Opcode::new(0xCF, "RST".to_string(), 4, 1, Opcode::nop), //place holder nop
+                Opcode::new(0xD0, "RET NC".to_string(), 2, 1, Opcode::nop), //place holder nop
+                Opcode::new(0xD1, "POP DE".to_string(), 3, 1, Opcode::pop_de),
+                Opcode::new(0xD2, "JP NC, u16".to_string(), 3, 1, Opcode::nop), //place holder nop
+                Opcode::new(0xD3, "No Op 0xD3".to_string(), 1, 1, Opcode::nop),
+                Opcode::new(0xD4, "CALL NC, u16".to_string(), 3, 3, Opcode::nop), //place holder nop
+                Opcode::new(0xD5, "PUSH DE".to_string(), 4, 1, Opcode::push_de),
+                Opcode::new(0xD6, "SUB A, u8".to_string(), 2, 2, Opcode::sub_a_n),
+                Opcode::new(0xD7, "RST 10h".to_string(), 4, 1, Opcode::nop), //place holder nop
+                Opcode::new(0xD8, "RET C".to_string(), 4, 1, Opcode::nop),   //place holder
+                Opcode::new(0xD9, "RETI".to_string(), 4, 1, Opcode::nop),    //place holder
+                Opcode::new(0xDA, "JP C, u16".to_string(), 3, 3, Opcode::nop), //place holder
+                Opcode::new(0xDB, "No Op DB".to_string(), 1, 1, Opcode::nop),
+                Opcode::new(0xDC, "CALL C, u16".to_string(), 1, 1, Opcode::nop), //place holder nop
+                Opcode::new(0xDD, "No Op DD".to_string(), 1, 1, Opcode::nop),
+                Opcode::new(0xDE, "SBC A, u8".to_string(), 2, 2, Opcode::sbc_a_n),
+                Opcode::new(0xDF, "RST".to_string(), 4, 1, Opcode::nop), //place holder nop
+                Opcode::new(0xE0, "LD (FF00+u8), A".to_string(), 1, 1, Opcode::ldh_n_a),
+                Opcode::new(0xE1, "POP HL".to_string(), 3, 1, Opcode::pop_hl),
+                Opcode::new(0xE2, "LD (FF00+C), A".to_string(), 1, 1, Opcode::ldh_c_a),
+                Opcode::new(0xE3, "No Op 0xE3".to_string(), 1, 1, Opcode::nop),
+                Opcode::new(0xE4, "No Op 0xE4".to_string(), 1, 1, Opcode::nop),
+                Opcode::new(0xE5, "PUSH HL".to_string(), 4, 1, Opcode::push_hl),
+                Opcode::new(0xE6, "AND A, u8".to_string(), 2, 1, Opcode::and_a_n),
+                Opcode::new(0xE7, "RST 20h".to_string(), 4, 1, Opcode::nop), //place holder
+                Opcode::new(0xE8, "ADD SP, i8".to_string(), 4, 1, Opcode::add_sp_dd),
+                Opcode::new(0xE9, "JP HL".to_string(), 1, 1, Opcode::nop), //Place holder
+                Opcode::new(0xEA, "LD (u16), A".to_string(), 1, 1, Opcode::load_nn_a),
+                Opcode::new(0xEB, "No Op 0xEB".to_string(), 1, 1, Opcode::nop),
+                Opcode::new(0xEC, "No Op 0xEC".to_string(), 1, 1, Opcode::nop),
+                Opcode::new(0xED, "No Op 0xED".to_string(), 1, 1, Opcode::nop),
+                Opcode::new(0xEE, "XOR A, u8".to_string(), 2, 1, Opcode::xor_a_n),
+                Opcode::new(0xEF, "RST 28h".to_string(), 4, 1, Opcode::nop), //place holder
+                Opcode::new(0xF0, "LD A, (FF00+u8)".to_string(), 3, 2, Opcode::ldh_a_n),
+                Opcode::new(0xF1, "POP AF".to_string(), 3, 1, Opcode::pop_af),
+                Opcode::new(0xF2, "LD A, (FF00+C)".to_string(), 2, 1, Opcode::ldh_a_c),
+                Opcode::new(0xF3, "DI".to_string(), 1, 1, Opcode::nop),
+                Opcode::new(0xF4, "No Op 0xF4".to_string(), 1, 1, Opcode::nop),
+                Opcode::new(0xF5, "PUSH AF".to_string(), 4, 1, Opcode::push_af),
+                Opcode::new(0xF6, "OR A, u8".to_string(), 2, 1, Opcode::or_a_n),
+                Opcode::new(0xF7, "RST 30h".to_string(), 4, 1, Opcode::nop), //place holder
+                Opcode::new(0xF8, "LD HL, SP+i8".to_string(), 3, 1, Opcode::ld_hl_sp_dd),
+                Opcode::new(0xF9, "LD SP, HL".to_string(), 2, 1, Opcode::load_sp_hl),
+                Opcode::new(0xFA, "LD A, (u16)".to_string(), 4, 3, Opcode::load_a_nn),
+                Opcode::new(0xFB, "FB".to_string(), 1, 1, Opcode::nop), //place holder
+                Opcode::new(0xFC, "No Op 0xFC".to_string(), 1, 1, Opcode::nop),
+                Opcode::new(0xFD, "No Op 0xFD".to_string(), 1, 1, Opcode::nop),
+                Opcode::new(0xFE, "CP A, u8".to_string(), 2, 2, Opcode::cp_a_n),
+                Opcode::new(0xFF, "RST 38h".to_string(), 4, 1, Opcode::nop), //Place holder
             ],
         }
     }
