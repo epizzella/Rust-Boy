@@ -560,6 +560,15 @@ impl Opcode {
 
     /********** Rotate and Shift Commands **********/
 
+    //0b00000111/0x07
+    pub fn rlca(&self, cpu: &mut Cpu) {
+        self.rlca(cpu);
+    }
+
+    pub fn rla(&self, cpu: &mut Cpu) {
+        cpu.rla();
+    }
+
     /********** CPU-Control commands **********/
 
     //No Operation Preformed

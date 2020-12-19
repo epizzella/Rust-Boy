@@ -14,8 +14,8 @@ impl OpcodeTable {
                 Opcode::new(0x03, "INC BC".to_string(), 2, 1, Opcode::inc_rr),
                 Opcode::new(0x04, "INC B".to_string(), 1, 1, Opcode::inc_r),
                 Opcode::new(0x05, "DEC B".to_string(), 1, 1, Opcode::dec_r),
-                Opcode::new(0x06, "LD B, u8".to_string(), 1, 21, Opcode::nop), //Place holder nop
-                Opcode::new(0x07, "RLCA".to_string(), 2, 1, Opcode::load_bc_a),
+                Opcode::new(0x06, "LD B, u8".to_string(), 1, 21, Opcode::load_r_n), //Place holder nop
+                Opcode::new(0x07, "RLCA".to_string(), 2, 1, Opcode::rlca),
                 Opcode::new(0x08, "LD (u16), SP".to_string(), 2, 1, Opcode::load_nn_sp),
                 Opcode::new(0x09, "ADD HL, BC".to_string(), 2, 1, Opcode::add_hl_rr),
                 Opcode::new(0x0A, "LD A, (BC)".to_string(), 2, 1, Opcode::load_a_bc),
@@ -31,7 +31,7 @@ impl OpcodeTable {
                 Opcode::new(0x14, "INC D".to_string(), 1, 1, Opcode::inc_r),
                 Opcode::new(0x15, "DEC D".to_string(), 1, 1, Opcode::dec_r),
                 Opcode::new(0x16, "LD D, u8".to_string(), 1, 1, Opcode::load_r_n),
-                Opcode::new(0x17, "RLA".to_string(), 1, 1, Opcode::nop), //Plaace holder nop
+                Opcode::new(0x17, "RLA".to_string(), 1, 1, Opcode::rla),
                 Opcode::new(0x18, "JR i8".to_string(), 3, 2, Opcode::nop), //Place holder nop
                 Opcode::new(0x19, "ADD HL, DE".to_string(), 2, 1, Opcode::add_hl_rr),
                 Opcode::new(0x1A, "LD A, (DE)".to_string(), 2, 1, Opcode::load_a_de),
