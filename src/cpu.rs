@@ -5,8 +5,8 @@ pub struct Cpu {
     // 0  1  2  3  4  5  6  7
     // B  C  D  E  H  L  F  A
     registers: [u8; 8],
-    sp: usize,
-    pc: usize,
+    sp: u16,
+    pc: u16,
     //Memory
     memory: [u8; 0xffff],
     /*
@@ -55,10 +55,12 @@ impl Cpu {
     }
 
     pub fn execute_step(&mut self, unprifxed_instructions: &OpcodeTable) {
-        let current_opcode = self.memory[self.pc] as usize;
+        let current_opcode = self.memory[self.pc as usize] as usize;
 
         if current_opcode != 0xCB {
-            self.pc += unprifxed_instructions.table[current_opcode].get_length();
+            self.pc = self
+                .pc
+                .wrapping_add(unprifxed_instructions.table[current_opcode].get_length() as u16);
             let instruction = &unprifxed_instructions.table[current_opcode];
             (instruction.handler)(&instruction, self);
         } else {
@@ -110,25 +112,25 @@ impl Cpu {
 
     //Read the program counter
     #[inline]
-    pub fn read_pc(&self) -> usize {
+    pub fn read_pc(&self) -> u16 {
         self.pc
     }
 
     //Write program counter
     #[inline]
-    pub fn write_pc(&mut self, nn: usize) {
+    pub fn write_pc(&mut self, nn: u16) {
         self.pc = nn;
     }
 
     //Write to the stack pointer
     #[inline]
-    pub fn write_sp(&mut self, nn: usize) {
+    pub fn write_sp(&mut self, nn: u16) {
         self.sp = nn;
     }
 
     //Read the stack pointer
     #[inline]
-    pub fn read_sp(&mut self) -> usize {
+    pub fn read_sp(&mut self) -> u16 {
         self.sp
     }
 
@@ -171,15 +173,19 @@ impl Cpu {
     //push 16bit register onto the stack
     pub fn push_rr(&mut self, reg_16: Reg16bit) {
         self.sp = self.sp.wrapping_sub(1);
-        self.memory[self.sp] = self.registers[reg_16 as usize];
+        self.memory[self.sp as usize] = self.registers[reg_16 as usize];
         self.sp = self.sp.wrapping_sub(1);
-        self.memory[self.sp] = self.registers[(reg_16 as usize) + 1];
+        self.memory[self.sp as usize] = self.registers[(reg_16 as usize) + 1];
     }
 
     //pop 16bit regsiter off of the stack
     pub fn pop_rr(&mut self, reg_16: Reg16bit) {
         self.sp = self.sp.wrapping_add(1);
-        self.write_reg16_fast(reg_16 as usize, self.memory[self.sp], self.memory[self.sp + 1]);
+        self.write_reg16_fast(
+            reg_16 as usize,
+            self.memory[self.sp as usize],
+            self.memory[(self.sp as usize) + 1],
+        );
         self.sp = self.sp.wrapping_add(1);
     }
 
@@ -205,7 +211,7 @@ impl Cpu {
     //add a value from memory to register a
     pub fn add_a_hl(&mut self, add_carry: bool) {
         let mem_index = self.read_reg16(Reg16bit::HL as usize) as usize;
-        let addend = self.registers[mem_index];
+        let addend = self.memory[mem_index];
         let carry_flag = self.registers[Reg8bit::F as usize] & F_CARRY_SET > 0;
         let carry_value = (carry_flag && add_carry) as u8;
 
@@ -224,13 +230,13 @@ impl Cpu {
 
     //adds the next value in memory to A
     pub fn add_a_n(&mut self, add_carry: bool) {
-        let addend = self.memory[self.pc + 1];
+        let addend = self.memory[(self.pc as usize) - 1];
         let carry_flag = self.registers[Reg8bit::F as usize] & F_CARRY_SET > 0;
         let carry_value = (carry_flag && add_carry) as u8;
 
         //do the add
         self.registers[Reg8bit::A as usize] = self.registers[Reg8bit::A as usize]
-            .wrapping_add(self.memory[self.pc + 1])
+            .wrapping_add(addend)
             .wrapping_add(carry_value); //if add_carry is true then this acts as adc instruction
 
         self.check_for_carry(addend, carry_value);
@@ -249,7 +255,7 @@ impl Cpu {
 
         //do the sub
         self.registers[Reg8bit::A as usize] = self.registers[Reg8bit::A as usize]
-            .wrapping_sub(self.memory[self.pc + 1])
+            .wrapping_sub(subtrahend)
             .wrapping_sub(barrow_value); //if add_carry is true then this acts as sbc instruction
 
         self.check_for_carry_sub(subtrahend, barrow_value);
@@ -262,13 +268,13 @@ impl Cpu {
     //sub a register to register A
     pub fn sub_a_hl(&mut self, add_barrow: bool) {
         let mem_index = self.read_reg16(Reg16bit::HL as usize) as usize;
-        let subtrahend = self.registers[mem_index];
+        let subtrahend = self.memory[mem_index];
         let carry_flag = self.registers[Reg8bit::F as usize] & F_CARRY_SET > 0;
         let barrow_value = (carry_flag && add_barrow) as u8;
 
         //do the sub
         self.registers[Reg8bit::A as usize] = self.registers[Reg8bit::A as usize]
-            .wrapping_sub(self.memory[self.pc + 1])
+            .wrapping_sub(subtrahend)
             .wrapping_sub(barrow_value); //if add_carry is true then this acts as sbc instruction
 
         self.check_for_carry_sub(subtrahend, barrow_value);
@@ -280,13 +286,13 @@ impl Cpu {
 
     //sub a register to register A
     pub fn sub_a_n(&mut self, add_barrow: bool) {
-        let subtrahend = self.memory[self.pc + 1];
+        let subtrahend = self.memory[(self.pc as usize) - 1];
         let carry_flag = self.registers[Reg8bit::F as usize] & F_CARRY_SET > 0;
         let barrow_value = (carry_flag && add_barrow) as u8;
 
         //do the sub
         self.registers[Reg8bit::A as usize] = self.registers[Reg8bit::A as usize]
-            .wrapping_sub(self.memory[self.pc + 1])
+            .wrapping_sub(subtrahend)
             .wrapping_sub(barrow_value); //if add_carry is true then this acts as sbc instruction
 
         self.check_for_carry_sub(subtrahend, barrow_value);
@@ -307,7 +313,7 @@ impl Cpu {
     }
 
     pub fn and_a_n(&mut self) {
-        self.registers[Reg8bit::A as usize] &= self.registers[self.pc + 1];
+        self.registers[Reg8bit::A as usize] &= self.registers[(self.pc as usize) - 1];
 
         self.check_a_for_zero();
         self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR;
@@ -336,7 +342,7 @@ impl Cpu {
     }
 
     pub fn xor_a_n(&mut self) {
-        self.registers[Reg8bit::A as usize] ^= self.registers[self.pc + 1];
+        self.registers[Reg8bit::A as usize] ^= self.registers[(self.pc as usize) - 1];
 
         self.check_a_for_zero();
         self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR;
@@ -365,7 +371,7 @@ impl Cpu {
     }
 
     pub fn or_a_n(&mut self) {
-        self.registers[Reg8bit::A as usize] |= self.registers[self.pc + 1];
+        self.registers[Reg8bit::A as usize] |= self.registers[(self.pc as usize) - 1];
 
         self.check_a_for_zero();
         self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR;
@@ -459,7 +465,7 @@ impl Cpu {
     }
 
     pub fn add_sp_dd(&mut self) -> u16 {
-        let addend = (self.memory[self.pc + 1] as i8) as i16; //this is a signed number
+        let addend = (self.memory[(self.pc as usize) - 1] as i8) as i16; //this is a signed number
         let sum = (self.sp as i16).wrapping_add(addend) as u16; // do the math
 
         let z = (self.sp as i16).checked_add(addend);
