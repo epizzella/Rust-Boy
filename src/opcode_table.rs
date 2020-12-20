@@ -211,7 +211,7 @@ impl OpcodeTable {
                 Opcode::new(0xC8, "RET Z".to_string(), 2, 3, Opcode::ret_conditional),
                 Opcode::new(0xC9, "RET".to_string(), 4, 3, Opcode::ret),
                 Opcode::new(0xCA, "JP Z, u16".to_string(), 3, 3, Opcode::jp_conditional),
-                //CB Is a prefix for the second second of 256 instructions.  It should never be executed from this table
+                //CB Is a prefix for the second table of 256 instructions.  It should never be executed from this table
                 Opcode::new(0xCB, "PREFIX CB".to_string(), 3, 1, Opcode::nop),
                 Opcode::new(0xCC, "CALL Z, u16".to_string(), 3, 3, Opcode::call_conditional),
                 Opcode::new(0xCD, "CALL u16".to_string(), 6, 3, Opcode::call_nn),

@@ -637,6 +637,7 @@ impl Opcode {
 
     //Jump to nn
     //11000010/0xc3
+    #[inline]
     pub fn jp_nn(&self, cpu: &mut Cpu) {
         let pc = cpu.read_pc() as usize;
         let mut new_pc = cpu.read_memory(pc - 1) as u16; //get the msb
@@ -654,25 +655,22 @@ impl Opcode {
     //Conditional Jump
     //0b11yyy010
     pub fn jp_conditional(&self, cpu: &mut Cpu) {
-        let pc = cpu.read_pc() as usize;
         let check_flag = (self.opcode_byte & Y_BITS_MASK) >> 3;
 
         //check the appropriate flag
         let jump = Self::check_branch(cpu, check_flag);
 
         if jump {
-            let mut new_pc = cpu.read_memory(pc - 1) as u16; //get the msb
-            new_pc <<= 8; //shift the msb into proper position
-            new_pc += cpu.read_memory(pc - 2) as u16; //get the lsb and put it into position
-            cpu.write_pc(new_pc);
+            self.jp_nn(cpu);
         }
     }
 
-    //Relative jumo to d
+    //Relative jump to d
     //0b00011000/0x18
+    #[inline]
     pub fn jr_dd(&self, cpu: &mut Cpu) {
-        let mut pc = cpu.read_pc();
-        let d = (cpu.read_memory((pc - 1) as usize) as i8) as i16; //d is a signed value
+        let mut pc = cpu.read_pc() - self.opcode_byte as u16; //need the true opcode for relative jump
+        let d = (cpu.read_memory((pc + 1) as usize) as i8) as i16; //d is a signed value
         pc = (pc as i16).wrapping_add(d) as u16;
         cpu.write_pc(pc);
     }
@@ -680,78 +678,73 @@ impl Opcode {
     //Conditional relative jump
     ////0b00yyy000
     pub fn jr_conditional(&self, cpu: &mut Cpu) {
-        let mut pc = cpu.read_pc();
         let check_flag = ((self.opcode_byte & Y_BITS_MASK) >> 3) - 4; //subtract 4 to get correct indexing
 
         //check the appropriate flag
         let jump = Self::check_branch(cpu, check_flag);
 
         if jump {
-            //relative jump
-            let d = (cpu.read_memory((pc - 1) as usize) as i8) as i16; //d is a signed value
-            pc = (pc as i16).wrapping_add(d) as u16;
-            cpu.write_pc(pc);
+            self.jr_dd(cpu);
         }
     }
 
     //Call to nn, saves pc on the stack
     //0b11001101/0xCD
+    #[inline]
     pub fn call_nn(&self, cpu: &mut Cpu) {
         let mut sp = cpu.read_sp();
         let pc = cpu.read_pc();
 
         let address = cpu.read_memory_nn((pc - 2) as usize) as u16;
 
-        sp = sp.wrapping_sub(2);
+        sp = sp.wrapping_sub(1);
+        cpu.write_memory(sp as usize, (pc & 0xff00 >> 8) as u8); //msb of pc
+        sp = sp.wrapping_sub(1);
+        cpu.write_memory(sp as usize, (pc & 0x00ff) as u8 as u8); //lsb of pc
+
         cpu.write_sp(sp);
-        cpu.write_memory_n_n(sp as usize, (pc & 0x00ff) as u8, (pc & 0xff00 >> 8) as u8);
         cpu.write_pc(address);
     }
 
     //Conditional Call
     //0b11yyy100
     pub fn call_conditional(&self, cpu: &mut Cpu) {
-        let pc = cpu.read_pc();
-        let mut sp = cpu.read_sp();
         let check_flag = (self.opcode_byte & Y_BITS_MASK) >> 3;
 
         //check the appropriate flag
         let call = Self::check_branch(cpu, check_flag);
 
         if call {
-            let address = cpu.read_memory_nn((pc - 2) as usize) as u16;
-
-            sp = sp.wrapping_sub(2);
-            cpu.write_sp(sp);
-            cpu.write_memory_n_n(sp as usize, (pc & 0x00ff) as u8, (pc & 0xff00 >> 8) as u8);
-            cpu.write_pc(address);
+            self.call_nn(cpu);
         }
     }
 
-    //Return from call
+    //Unconditional Return
     //0b11001001/0xC9
+    #[inline]
     pub fn ret(&self, cpu: &mut Cpu) {
         let mut sp = cpu.read_sp();
 
-        cpu.write_pc(cpu.read_memory_nn(sp as usize)); //get the stored pc from memory
+        //get the msb and lsb of the pc off of the stack
+        let lsb = cpu.read_memory(sp as usize) as u16;
+        sp = sp.wrapping_add(1);
+        let msb = cpu.read_memory(sp as usize) as u16;
+        sp = sp.wrapping_add(1);
 
-        sp = sp.wrapping_add(2);
-        cpu.write_sp(sp);
+        cpu.write_pc((msb << 8) | lsb); //update the pc
+        cpu.write_sp(sp); //update the sp
     }
 
-    //Return Conditional
+    //Conditional Return
     //11yyy0000
     pub fn ret_conditional(&self, cpu: &mut Cpu) {
-        let mut sp = cpu.read_sp();
         let check_flag = (self.opcode_byte & Y_BITS_MASK) >> 3;
 
         //check the appropriate flag
         let ret = Self::check_branch(cpu, check_flag);
 
         if ret {
-            cpu.write_pc(cpu.read_memory_nn(sp as usize)); //get the stored pc from memory
-            sp = sp.wrapping_add(2);
-            cpu.write_sp(sp);
+            self.ret(cpu);
         }
     }
 
@@ -770,9 +763,12 @@ impl Opcode {
         let mut sp = cpu.read_sp();
         let pc = cpu.read_pc();
 
-        sp = sp.wrapping_sub(2);
+        sp = sp.wrapping_sub(1);
+        cpu.write_memory(sp as usize, (pc & 0xff00 >> 8) as u8); //msb of pc
+        sp = sp.wrapping_sub(1);
+        cpu.write_memory(sp as usize, (pc & 0x00ff) as u8 as u8); //lsb of pc
+
         cpu.write_sp(sp);
-        cpu.write_memory_n_n(sp as usize, (pc & 0x00ff) as u8, (pc & 0xff00 >> 8) as u8);
         cpu.write_pc(address);
     }
 

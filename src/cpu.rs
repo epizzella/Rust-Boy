@@ -173,20 +173,19 @@ impl Cpu {
     //push 16bit register onto the stack
     pub fn push_rr(&mut self, reg_16: Reg16bit) {
         self.sp = self.sp.wrapping_sub(1);
-        self.memory[self.sp as usize] = self.registers[reg_16 as usize];
+        self.memory[self.sp as usize] = self.registers[reg_16 as usize]; //msb
         self.sp = self.sp.wrapping_sub(1);
-        self.memory[self.sp as usize] = self.registers[(reg_16 as usize) + 1];
+        self.memory[self.sp as usize] = self.registers[(reg_16 as usize) + 1]; //lsb
     }
 
     //pop 16bit regsiter off of the stack
     pub fn pop_rr(&mut self, reg_16: Reg16bit) {
-        self.sp = self.sp.wrapping_add(1);
         self.write_reg16_fast(
             reg_16 as usize,
-            self.memory[self.sp as usize],
-            self.memory[(self.sp as usize) + 1],
+            self.memory[self.sp as usize],       //lsb
+            self.memory[(self.sp as usize) + 1], //msb
         );
-        self.sp = self.sp.wrapping_add(1);
+        self.sp = self.sp.wrapping_add(2);
     }
 
     //add a register to register a
