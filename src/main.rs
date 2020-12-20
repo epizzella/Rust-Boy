@@ -5,11 +5,13 @@ mod user_interface;
 mod windows_interface;
 
 use crate::cpu::*;
+use opcode_table::OpcodeTable;
 use std::env;
 use windows_interface::*;
 
 fn main() {
     let mut gameboy_cpu: Cpu = Cpu::new();
+    let unprifxed_instructions = OpcodeTable::init_unprefix_insturction_table();
 
     //get command line arguments
     let args: Vec<String> = env::args().collect();
@@ -19,6 +21,10 @@ fn main() {
 
     //load tetris; hard coded to work with debug
     load_rom("C:\\Repos\\GBCEmulator\\roms\\Tetris.gb", &mut gameboy_cpu);
+
+    loop {
+        gameboy_cpu.execute_step(&unprifxed_instructions);
+    }
 
     println!("End of Program");
 }

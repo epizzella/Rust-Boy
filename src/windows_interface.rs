@@ -8,9 +8,7 @@ use crate::cpu::*;
 pub fn load_rom(file_path: &str, cpu: &mut Cpu) {
     let mut rom = File::open(file_path).expect("Rom was not found");
     let mut buffer = Vec::new();
-    let buffer_size = rom
-        .read_to_end(&mut buffer)
-        .expect("Error when reading rom");
+    let buffer_size = rom.read_to_end(&mut buffer).expect("Error when reading rom");
 
     if buffer_size < VRAM_END {
         //transfer rom into memory

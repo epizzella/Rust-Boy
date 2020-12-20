@@ -1,6 +1,6 @@
 use crate::cpu::*;
 
-const Y_REG_MASK: u8 = 0x38;
+const Y_BITS_MASK: u8 = 0x38;
 const Z_REG_MASK: u8 = 0x07;
 const P_REG_MASK: u8 = 0x30;
 const LDH_ADDR_MSB_MASK: usize = 0xff00;
@@ -9,8 +9,8 @@ pub struct Opcode {
     opcode_byte: u8, //hex representatoin of the opcode
     opcode_name: String,
     number_of_cycles: u8,
-    increase_pc_by: u8, //in bytes
-    handler: fn(&Self, &mut Cpu),
+    number_of_bytes: usize, //in bytes
+    pub handler: fn(&Self, &mut Cpu),
 }
 
 //For information on the implementation of these opcodes please see Chapter 2 of Game Boy: Complete Technical Reference
@@ -21,7 +21,7 @@ impl Opcode {
         opcode: u8,
         opcode_name: String,
         cycles: u8,
-        length: u8,
+        bytes: usize,
         function: fn(&Self, &mut Cpu),
     ) -> Self {
         let test_opcode = Self {
@@ -29,15 +29,23 @@ impl Opcode {
             opcode_name: opcode_name,
             opcode_byte: opcode,
             number_of_cycles: cycles,
-            increase_pc_by: length,
+            number_of_bytes: bytes,
             handler: function,
         };
         test_opcode
     }
+
+    #[inline]
+    pub fn get_length(&self) -> usize {
+        self.number_of_bytes
+    }
+
+    /**********8 bit load instructions**********/
+
     //8-bit load instructions transfer one byte of data between two 8-bit registers
     //0b01yyyzzz
     pub fn load_r_r(&self, cpu: &mut Cpu) {
-        let register_y: usize = ((self.opcode_byte & Y_REG_MASK) >> 3) as usize;
+        let register_y: usize = ((self.opcode_byte & Y_BITS_MASK) >> 3) as usize;
         let register_z: usize = (self.opcode_byte & Z_REG_MASK) as usize;
         cpu.write_reg8_with_reg8(register_y, register_z);
     }
@@ -45,15 +53,15 @@ impl Opcode {
     //Load to the 8-bit register r, the immediate data n.
     //0b00yyy110
     pub fn load_r_n(&self, cpu: &mut Cpu) {
-        let register: usize = ((self.opcode_byte & Y_REG_MASK) >> 3) as usize;
+        let register: usize = ((self.opcode_byte & Y_BITS_MASK) >> 3) as usize;
         let pc: usize = cpu.read_pc();
-        cpu.write_reg8(register, cpu.read_memory(pc + 1));
+        cpu.write_reg8(register, cpu.read_memory(pc - 1)); //pc is incremented before exectution.  So we need the previous byte in memory
     }
 
     //Load to the 8-bit register r, data from the absolute address specified by the 16-bit register HL.
     //0b01yyy110
     pub fn load_r_hl(&self, cpu: &mut Cpu) {
-        let register: usize = ((self.opcode_byte & Y_REG_MASK) >> 3) as usize;
+        let register: usize = ((self.opcode_byte & Y_BITS_MASK) >> 3) as usize;
         let index = cpu.read_reg16(Reg16bit::HL as usize) as usize;
         cpu.write_reg8(register, cpu.read_memory(index));
     }
@@ -71,7 +79,7 @@ impl Opcode {
     pub fn load_hl_n(&self, cpu: &mut Cpu) {
         let pc: usize = cpu.read_pc();
         let index = cpu.read_reg16(Reg16bit::HL as usize) as usize;
-        cpu.write_memory(index, cpu.read_memory(pc + 1));
+        cpu.write_memory(index, cpu.read_memory(pc - 1)); //pc is incremented before exectution.  So we need the previous byte in memory
     }
 
     //Load to the 8-bit A register, data from the absolute address specified by the 16-bit register BC.
@@ -106,9 +114,9 @@ impl Opcode {
     //0b11111010/0xFA + LSB of nn + MSB of nn
     pub fn load_a_nn(&self, cpu: &mut Cpu) {
         let pc: usize = cpu.read_pc();
-        let mut index = cpu.read_memory(pc + 2) as usize;
+        let mut index = cpu.read_memory(pc - 1) as usize; //get the msb.  PC is incremneted before execution
         index <<= 8;
-        index |= cpu.read_memory(pc + 1) as usize;
+        index |= cpu.read_memory(pc - 2) as usize; //get the lsb.  PC is incremneted before execution
         cpu.write_reg8(Reg8bit::A as usize, cpu.read_memory(index));
     }
 
@@ -116,9 +124,9 @@ impl Opcode {
     //0b11101010/0xEA + LSB of nn + MSB of nn
     pub fn load_nn_a(&self, cpu: &mut Cpu) {
         let pc: usize = cpu.read_pc();
-        let mut index = cpu.read_memory(pc + 2) as usize;
+        let mut index = cpu.read_memory(pc - 1) as usize; //get msb. PC is incremneted before execution
         index <<= 8;
-        index |= (cpu.read_memory(pc + 1)) as usize;
+        index |= (cpu.read_memory(pc - 2)) as usize; //get lsb. PC is incremneted before execution
         cpu.write_memory(index, cpu.read_reg8(Reg8bit::A as usize));
     }
 
@@ -127,7 +135,7 @@ impl Opcode {
     //so the possible range is 0xFF00-0xFFFF.
     //0b11110010/0xF2
     pub fn ldh_a_c(&self, cpu: &mut Cpu) {
-        let mut index = LDH_ADDR_MSB_MASK | cpu.read_reg8(Reg8bit::C as usize) as usize;
+        let index = LDH_ADDR_MSB_MASK | cpu.read_reg8(Reg8bit::C as usize) as usize;
         cpu.write_reg8(Reg8bit::A as usize, cpu.read_memory(index));
     }
 
@@ -136,7 +144,7 @@ impl Opcode {
     //so the possible range is 0xFF00-0xFFFF.
     //0b11100010/0xE2
     pub fn ldh_c_a(&self, cpu: &mut Cpu) {
-        let mut index = LDH_ADDR_MSB_MASK | cpu.read_reg8(Reg8bit::C as usize) as usize;
+        let index = LDH_ADDR_MSB_MASK | cpu.read_reg8(Reg8bit::C as usize) as usize;
         cpu.write_memory(index, cpu.read_reg8(Reg8bit::A as usize));
     }
 
@@ -146,7 +154,7 @@ impl Opcode {
     //0b11110000/0xF0
     pub fn ldh_a_n(&self, cpu: &mut Cpu) {
         let pc: usize = cpu.read_pc();
-        let mut index = LDH_ADDR_MSB_MASK | cpu.read_memory(pc + 1) as usize;
+        let index = LDH_ADDR_MSB_MASK | cpu.read_memory(pc - 1) as usize;
         cpu.write_reg8(Reg8bit::A as usize, cpu.read_memory(index));
     }
 
@@ -156,8 +164,8 @@ impl Opcode {
     //0b11100000/0xE0
     pub fn ldh_n_a(&self, cpu: &mut Cpu) {
         let pc: usize = cpu.read_pc();
-        let mut index = LDH_ADDR_MSB_MASK | cpu.read_memory(pc + 1) as usize;
-        cpu.write_memory(index, cpu.read_memory(pc + 1));
+        let index = LDH_ADDR_MSB_MASK | cpu.read_memory(pc - 1) as usize;
+        cpu.write_memory(index, cpu.read_reg8(Reg8bit::A as usize));
     }
 
     //Load to the 8-bit A register, data from the absolute address specified by the 16-bit register HL. The value of
@@ -208,8 +216,8 @@ impl Opcode {
         let pc = cpu.read_pc();
         cpu.write_reg16_fast(
             Reg16bit::BC as usize,
-            cpu.read_memory(pc),
-            cpu.read_memory(pc + 1),
+            cpu.read_memory(pc - 2),
+            cpu.read_memory(pc - 1),
         )
     }
 
@@ -220,8 +228,8 @@ impl Opcode {
         let pc = cpu.read_pc();
         cpu.write_reg16_fast(
             Reg16bit::DE as usize,
-            cpu.read_memory(pc),
-            cpu.read_memory(pc + 1),
+            cpu.read_memory(pc - 2),
+            cpu.read_memory(pc - 1),
         )
     }
 
@@ -232,8 +240,8 @@ impl Opcode {
         let pc = cpu.read_pc();
         cpu.write_reg16_fast(
             Reg16bit::HL as usize,
-            cpu.read_memory(pc),
-            cpu.read_memory(pc + 1),
+            cpu.read_memory(pc - 2),
+            cpu.read_memory(pc - 1),
         )
     }
 
@@ -242,9 +250,9 @@ impl Opcode {
     //0b00110001 + LSB of nn + MSB of nn
     pub fn load_sp_nn(&self, cpu: &mut Cpu) {
         let pc = cpu.read_pc();
-        let mut new_sp = cpu.read_memory(pc + 1) as usize;
+        let mut new_sp = cpu.read_memory(pc - 1) as usize; //get msb
         new_sp <<= 8;
-        new_sp += cpu.read_memory(pc) as usize;
+        new_sp += cpu.read_memory(pc - 2) as usize; //get lsb
         cpu.write_sp(new_sp);
     }
 
@@ -252,11 +260,11 @@ impl Opcode {
     //0b00001000/0x08 + LSB of nn + MSB of nn
     pub fn load_nn_sp(&self, cpu: &mut Cpu) {
         let pc = cpu.read_pc();
-        let index = cpu.read_memory_nn(pc) as usize;
+        let index = cpu.read_memory_nn(pc - 2) as usize;
 
-        let mut sp_lsb = cpu.read_sp();
-        let sp_msb = sp_lsb >> 8;
-        sp_lsb &= 0x00ff;
+        let mut sp_lsb = cpu.read_sp(); //get stack pointer
+        let sp_msb = sp_lsb >> 8; // shift right to get just msn
+        sp_lsb &= 0x00ff; //mask to get only the lsb
 
         cpu.write_memory_n_n(index, sp_lsb as u8, sp_msb as u8);
     }
@@ -474,7 +482,7 @@ impl Opcode {
 
     //Incerement register r by 1
     pub fn inc_r(&self, cpu: &mut Cpu) {
-        let register_y: usize = ((self.opcode_byte & Y_REG_MASK) >> 3) as usize;
+        let register_y: usize = ((self.opcode_byte & Y_BITS_MASK) >> 3) as usize;
         cpu.increment_r(register_y);
     }
 
@@ -486,7 +494,7 @@ impl Opcode {
 
     //Decerement register r by 1
     pub fn dec_r(&self, cpu: &mut Cpu) {
-        let register_y: usize = ((self.opcode_byte & Y_REG_MASK) >> 3) as usize;
+        let register_y: usize = ((self.opcode_byte & Y_BITS_MASK) >> 3) as usize;
         cpu.decrement_r(register_y);
     }
 
@@ -560,18 +568,252 @@ impl Opcode {
 
     /********** Rotate and Shift Commands **********/
 
+    //Rotates register A to the left with bit 7 being moved to bit 0 and also stored into carry
     //0b00000111/0x07
     pub fn rlca(&self, cpu: &mut Cpu) {
         self.rlca(cpu);
     }
 
+    //Rotates register A to the left with the carry's value put into bit 0 and bit 7 is put into the carry.
+    //0b00010111/0x17
     pub fn rla(&self, cpu: &mut Cpu) {
         cpu.rla();
     }
 
+    //Rotates register A to the right with bit 0 being moved to bit 7 and also stored into carry
+    pub fn rrca(&self, cpu: &mut Cpu) {
+        self.rrca(cpu);
+    }
+
+    //Rotates register A to the right with the carry's value put into bit 7 and bit 0 is put into the carry.
+    //0b00011111/0x1F
+    pub fn rra(&self, cpu: &mut Cpu) {
+        cpu.rra();
+    }
+
     /********** CPU-Control commands **********/
 
+    //Carry bit xored with 1
+    //0b00101111/0x3f
+    pub fn ccf(&self, cpu: &mut Cpu) {
+        cpu.ccf();
+    }
+
+    //Sets the carry bit
+    //0b00100111/0x37
+    pub fn scf(&self, cpu: &mut Cpu) {
+        cpu.scf();
+    }
+
     //No Operation Preformed
-    //0b00000000
-    pub fn nop(&self, cpu: &mut Cpu) {}
+    //0b00000000/0x00
+    pub fn nop(&self, _cpu: &mut Cpu) {}
+
+    //halt until interrupt occurs (low power)
+    //0b01110110/0x76
+    pub fn halt(&self, cpu: &mut Cpu) {
+        //place holder
+    }
+
+    //low power standby mode (VERY low power)
+    //0b00010000/0x10
+    pub fn stop(&self, cpu: &mut Cpu) {
+        //place holder
+    }
+
+    //disable interrupts, IME=0
+    //0b11110010/0xf3
+    pub fn di(&self, cpu: &mut Cpu) {
+        //place holder
+    }
+
+    //enable interrupts, IME=0
+    //0b11111011/0xfb
+    pub fn ei(&self, cpu: &mut Cpu) {
+        //place holder
+    }
+
+    /********** Jump Commands **********/
+
+    //Jump to nn
+    //11000010/0xc3
+    pub fn jp_nn(&self, cpu: &mut Cpu) {
+        let pc = cpu.read_pc();
+        let mut new_pc = cpu.read_memory(pc - 2) as usize; //get the msb
+        new_pc <<= 8; //shift the msb into proper position
+        new_pc |= cpu.read_memory(pc - 1) as usize; //get the lsb and put it into position
+        cpu.write_pc(new_pc);
+    }
+
+    //Jump to HL
+    //0b11101001/0xe9
+    pub fn jp_hl(&self, cpu: &mut Cpu) {
+        cpu.write_pc(cpu.read_reg16(Reg16bit::HL as usize) as usize);
+    }
+
+    //Conditional Jump
+    //0b11yyy010
+    pub fn jp_conditional(&self, cpu: &mut Cpu) {
+        let pc = cpu.read_pc();
+        let check_flag = (self.opcode_byte & Y_BITS_MASK) >> 3;
+
+        //check the appropriate flag
+        let jump: bool = match check_flag {
+            0 => !cpu.get_zero_bit(),
+            1 => cpu.get_zero_bit(),
+            2 => cpu.get_carry_bit(),
+            3 => cpu.get_carry_bit(),
+            _ => {
+                println!("Bad conditional jump!");
+                false
+            }
+        };
+
+        if jump {
+            let mut new_pc = cpu.read_memory(pc - 2) as usize; //get the msb
+            new_pc <<= 8; //shift the msb into proper position
+            new_pc += cpu.read_memory(pc - 1) as usize; //get the lsb and put it into position
+            cpu.write_pc(new_pc);
+        }
+    }
+
+    //Relative jumo to d
+    //0b00011000/0x18
+    pub fn jr_dd(&self, cpu: &mut Cpu) {
+        let mut pc = cpu.read_pc();
+        let d = (cpu.read_memory(pc - 1) as i8) as i16; //d is a signed value
+        pc = (pc as i16).wrapping_add(d) as usize;
+        cpu.write_pc(pc);
+    }
+
+    //Conditional relative jump
+    ////0b00yyy000
+    pub fn jr_conditional(&self, cpu: &mut Cpu) {
+        let mut pc = cpu.read_pc();
+        let check_flag = ((self.opcode_byte & Y_BITS_MASK) >> 3) - 4; //subtract 4 to get correct indexing
+
+        //check the appropriate flag
+        let jump: bool = match check_flag {
+            0 => !cpu.get_zero_bit(),
+            1 => cpu.get_zero_bit(),
+            2 => cpu.get_carry_bit(),
+            3 => cpu.get_carry_bit(),
+            _ => {
+                println!("Bad conditional relative jump!");
+                false
+            }
+        };
+
+        if jump {
+            //relative jump
+            let d = (cpu.read_memory(pc - 1) as i8) as i16; //d is a signed value
+            pc = (pc as i16).wrapping_add(d) as usize;
+            cpu.write_pc(pc);
+        }
+    }
+
+    //Call to nn, saves pc on the stack
+    //0b11001101/0xCD
+    pub fn call_nn(&self, cpu: &mut Cpu) {
+        let mut sp = cpu.read_sp();
+        let pc = cpu.read_pc();
+
+        let address = cpu.read_memory_nn(pc - 2) as usize;
+
+        sp = sp.wrapping_sub(2);
+        cpu.write_sp(sp);
+        cpu.write_memory_n_n(sp, (pc & 0x00ff) as u8, (pc & 0xff00 >> 8) as u8);
+        cpu.write_pc(address);
+    }
+
+    //Conditional Call
+    //0b11yyy100
+    pub fn call_conditional(&self, cpu: &mut Cpu) {
+        let pc = cpu.read_pc();
+        let mut sp = cpu.read_sp();
+        let check_flag = (self.opcode_byte & Y_BITS_MASK) >> 3;
+
+        //check the appropriate flag
+        let call: bool = match check_flag {
+            0 => !cpu.get_zero_bit(),
+            1 => cpu.get_zero_bit(),
+            2 => cpu.get_carry_bit(),
+            3 => cpu.get_carry_bit(),
+            _ => {
+                println!("Bad conditional call!");
+                false
+            }
+        };
+
+        if call {
+            let address = cpu.read_memory_nn(pc - 2) as usize;
+
+            sp = sp.wrapping_sub(2);
+            cpu.write_sp(sp);
+            cpu.write_memory_n_n(sp, (pc & 0x00ff) as u8, (pc & 0xff00 >> 8) as u8);
+            cpu.write_pc(address);
+        }
+    }
+
+    //Return from call
+    //0b11001001/0xC9
+    pub fn ret(&self, cpu: &mut Cpu) {
+        let mut sp = cpu.read_sp();
+
+        cpu.write_pc(cpu.read_memory_nn(sp) as usize); //get the stored pc from memory
+
+        sp = sp.wrapping_add(2);
+        cpu.write_sp(sp);
+    }
+
+    //Return Conditional
+    //11yyy0000
+    pub fn ret_conditional(&self, cpu: &mut Cpu) {
+        let pc = cpu.read_pc();
+        let mut sp = cpu.read_sp();
+        let check_flag = (self.opcode_byte & Y_BITS_MASK) >> 3;
+
+        //check the appropriate flag
+        let ret: bool = match check_flag {
+            0 => !cpu.get_zero_bit(),
+            1 => cpu.get_zero_bit(),
+            2 => cpu.get_carry_bit(),
+            3 => cpu.get_carry_bit(),
+            _ => {
+                println!("Bad conditional call!");
+                false
+            }
+        };
+
+        if ret {
+            cpu.write_pc(cpu.read_memory_nn(sp) as usize); //get the stored pc from memory
+            sp = sp.wrapping_add(2);
+            cpu.write_sp(sp);
+        } else {
+            //don't return.  Decrease the pc by 2 as it will be increased by 3
+            //outside the function, as this instruction is only 1 byte long
+            cpu.write_pc(pc);
+        }
+    }
+
+    //return and enable interrupts (IME=1)
+    //0b11011001/0xd9
+    pub fn reti(&self, cpu: &mut Cpu) {
+        self.ret(cpu);
+        self.ei(cpu);
+    }
+
+    //Preforms a call, but only to a specific subset of addresses.
+    //0b11yyy0111
+    pub fn rst(&self, cpu: &mut Cpu) {
+        let address = (((self.opcode_byte & Y_BITS_MASK) >> 3) * 8) as usize;
+
+        let mut sp = cpu.read_sp();
+        let pc = cpu.read_pc();
+
+        sp = sp.wrapping_sub(2);
+        cpu.write_sp(sp);
+        cpu.write_memory_n_n(sp, (pc & 0x00ff) as u8, (pc & 0xff00 >> 8) as u8);
+        cpu.write_pc(address);
+    }
 }
