@@ -669,7 +669,7 @@ impl Opcode {
     //0b00011000/0x18
     #[inline]
     pub fn jr_dd(&self, cpu: &mut Cpu) {
-        let mut pc = cpu.read_pc() - self.opcode_byte as u16; //need the true opcode for relative jump
+        let mut pc = cpu.read_pc() - self.number_of_bytes as u16; //need the true opcode for relative jump
         let d = (cpu.read_memory((pc + 1) as usize) as i8) as i16; //d is a signed value
         pc = (pc as i16).wrapping_add(d) as u16;
         cpu.write_pc(pc);
