@@ -639,9 +639,9 @@ impl Opcode {
     //11000010/0xc3
     pub fn jp_nn(&self, cpu: &mut Cpu) {
         let pc = cpu.read_pc();
-        let mut new_pc = cpu.read_memory(pc - 2) as usize; //get the msb
+        let mut new_pc = cpu.read_memory(pc - 1) as usize; //get the msb
         new_pc <<= 8; //shift the msb into proper position
-        new_pc |= cpu.read_memory(pc - 1) as usize; //get the lsb and put it into position
+        new_pc |= cpu.read_memory(pc - 2) as usize; //get the lsb and put it into position
         cpu.write_pc(new_pc);
     }
 
@@ -670,9 +670,9 @@ impl Opcode {
         };
 
         if jump {
-            let mut new_pc = cpu.read_memory(pc - 2) as usize; //get the msb
+            let mut new_pc = cpu.read_memory(pc - 1) as usize; //get the msb
             new_pc <<= 8; //shift the msb into proper position
-            new_pc += cpu.read_memory(pc - 1) as usize; //get the lsb and put it into position
+            new_pc += cpu.read_memory(pc - 2) as usize; //get the lsb and put it into position
             cpu.write_pc(new_pc);
         }
     }
