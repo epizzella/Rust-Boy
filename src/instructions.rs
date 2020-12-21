@@ -7,9 +7,9 @@ const LDH_ADDR_MSB_MASK: usize = 0xff00;
 
 pub struct Opcode {
     opcode_byte: u8, //hex representatoin of the opcode
-    opcode_name: String,
+    pub opcode_name: String,
     number_of_cycles: u8,
-    number_of_bytes: u8, //in bytes
+    pub number_of_bytes: u8, //in bytes
     pub handler: fn(&Self, &mut Cpu),
 }
 
@@ -114,9 +114,9 @@ impl Opcode {
     //0b11111010/0xFA + LSB of nn + MSB of nn
     pub fn load_a_nn(&self, cpu: &mut Cpu) {
         let pc = cpu.read_pc() as usize;
-        let mut index = cpu.read_memory(pc - 1) as usize; //get the msb.  PC is incremneted before execution
+        let mut index = cpu.read_memory(pc - 1) as usize; //get the msb.
         index <<= 8;
-        index |= cpu.read_memory(pc - 2) as usize; //get the lsb.  PC is incremneted before execution
+        index |= cpu.read_memory(pc - 2) as usize; //get the lsb.
         cpu.write_reg8(Reg8bit::A as usize, cpu.read_memory(index));
     }
 
@@ -124,9 +124,9 @@ impl Opcode {
     //0b11101010/0xEA + LSB of nn + MSB of nn
     pub fn load_nn_a(&self, cpu: &mut Cpu) {
         let pc = cpu.read_pc() as usize;
-        let mut index = cpu.read_memory(pc - 1) as usize; //get msb. PC is incremneted before execution
+        let mut index = cpu.read_memory(pc - 1) as usize; //get msb.
         index <<= 8;
-        index |= cpu.read_memory(pc - 2) as usize; //get lsb. PC is incremneted before execution
+        index |= cpu.read_memory(pc - 2) as usize; //get lsb.
         cpu.write_memory(index, cpu.read_reg8(Reg8bit::A as usize));
     }
 
@@ -250,7 +250,7 @@ impl Opcode {
     //0b00110001 + LSB of nn + MSB of nn
     pub fn load_sp_nn(&self, cpu: &mut Cpu) {
         let pc = cpu.read_pc() as usize;
-        let mut new_sp = cpu.read_memory(pc - 2) as u16; //get msb
+        let mut new_sp = cpu.read_memory(pc - 1) as u16; //get msb
         new_sp <<= 8;
         new_sp += cpu.read_memory(pc - 2) as u16; //get lsb
         cpu.write_sp(new_sp);
@@ -520,7 +520,7 @@ impl Opcode {
     //Add to the 16-bit register HL, data from register pp
     //0b00pp1001
     pub fn add_hl_rr(&self, cpu: &mut Cpu) {
-        let register_p = (self.opcode_byte & P_REG_MASK >> 4) as usize;
+        let register_p = (((self.opcode_byte & P_REG_MASK) >> 4) * 2) as usize;
         cpu.add_hl_rr(register_p);
     }
 
@@ -532,7 +532,7 @@ impl Opcode {
 
     //Incerement register rr by 1
     pub fn inc_rr(&self, cpu: &mut Cpu) {
-        let register_p = (self.opcode_byte & P_REG_MASK >> 4) as usize;
+        let register_p = (((self.opcode_byte & P_REG_MASK) >> 4) * 2) as usize;
         cpu.write_reg16(register_p, cpu.read_reg16(register_p).wrapping_add(1));
     }
 
@@ -543,7 +543,7 @@ impl Opcode {
 
     //Decerement register rr by 1
     pub fn dec_rr(&self, cpu: &mut Cpu) {
-        let register_p = (self.opcode_byte & P_REG_MASK >> 4) as usize;
+        let register_p = (((self.opcode_byte & P_REG_MASK) >> 4) * 2) as usize;
         cpu.write_reg16(register_p, cpu.read_reg16(register_p).wrapping_sub(1));
     }
 
@@ -669,8 +669,9 @@ impl Opcode {
     //0b00011000/0x18
     #[inline]
     pub fn jr_dd(&self, cpu: &mut Cpu) {
-        let mut pc = cpu.read_pc() - self.number_of_bytes as u16; //need the true opcode for relative jump
-        let d = (cpu.read_memory((pc + 1) as usize) as i8) as i16; //d is a signed value
+        //This jump happens relative to the next instruction.  So pc is correct
+        let mut pc = cpu.read_pc() as u16; //need the true opcode for relative jump
+        let d = (cpu.read_memory((pc - 1) as usize) as i8) as i16; //d is a signed value
         pc = (pc as i16).wrapping_add(d) as u16;
         cpu.write_pc(pc);
     }
@@ -695,12 +696,12 @@ impl Opcode {
         let mut sp = cpu.read_sp();
         let pc = cpu.read_pc();
 
-        let address = cpu.read_memory_nn((pc - 2) as usize) as u16;
+        let address = cpu.read_memory_nn((pc - 2) as usize);
 
         sp = sp.wrapping_sub(1);
-        cpu.write_memory(sp as usize, (pc & 0xff00 >> 8) as u8); //msb of pc
+        cpu.write_memory(sp as usize, ((pc & 0xff00) >> 8) as u8); //msb of pc
         sp = sp.wrapping_sub(1);
-        cpu.write_memory(sp as usize, (pc & 0x00ff) as u8 as u8); //lsb of pc
+        cpu.write_memory(sp as usize, (pc & 0x00ff) as u8); //lsb of pc
 
         cpu.write_sp(sp);
         cpu.write_pc(address);

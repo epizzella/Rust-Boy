@@ -1,6 +1,10 @@
-use std::io::Read;
+use std::path::Path;
 use std::vec::Vec;
 use std::{fs::File, time::Duration};
+use std::{
+    fs::OpenOptions,
+    io::{BufWriter, Read, Write},
+};
 
 use crate::cpu::*;
 
@@ -18,6 +22,66 @@ pub fn load_rom(file_path: &str, cpu: &mut Cpu) {
     } else {
         println!("Rom size ({} bytes) greater than end of vram.", buffer_size);
     }
+}
+
+pub fn print_log_console(cpu: &Cpu) {
+    let sp = cpu.read_sp();
+    let pc = cpu.read_pc();
+
+    println!(
+        "A: {:02X} F: {:02X} B: {:02X} C: {:02X} D: {:02X} E: {:02X} H: {:02X} L: {:02X} SP: {:02X} PC: 00:{:02X} Mem({:02X} {:02X} {:02X} {:02X}) Stack({:02X})",
+        cpu.read_reg8(Reg8bit::A as usize),
+        cpu.read_reg8(Reg8bit::F as usize),
+        cpu.read_reg8(Reg8bit::B as usize),
+        cpu.read_reg8(Reg8bit::C as usize),
+        cpu.read_reg8(Reg8bit::D as usize),
+        cpu.read_reg8(Reg8bit::E as usize),
+        cpu.read_reg8(Reg8bit::H as usize),
+        cpu.read_reg8(Reg8bit::L as usize),
+        sp,
+        pc,
+        cpu.read_memory(pc as usize),
+        cpu.read_memory(pc as usize + 1),
+        cpu.read_memory(pc as usize + 2),
+        cpu.read_memory(pc as usize + 3),
+        cpu.read_memory(cpu.read_sp() as usize),
+    );
+}
+
+pub fn print_log_file(cpu: &Cpu) -> std::io::Result<()> {
+    let path = Path::new("DMG_log.txt");
+    let f: File;
+
+    if path.exists() {
+        f = OpenOptions::new()
+            .append(true)
+            .open(path)
+            .expect("Cannot open file");
+    } else {
+        f = File::create("DMG_log.txt").expect("Unable to create file");
+    }
+
+    let mut f = BufWriter::new(f);
+
+    writeln!(f,
+        "A: {:02X} F: {:02X} B: {:02X} C: {:02X} D: {:02X} E: {:02X} H: {:02X} L: {:02X} SP: {:02X} PC: 00:{:04X} ({:02X} {:02X} {:02X} {:02X})",
+        cpu.read_reg8(Reg8bit::A as usize),
+        cpu.read_reg8(Reg8bit::F as usize),
+        cpu.read_reg8(Reg8bit::B as usize),
+        cpu.read_reg8(Reg8bit::C as usize),
+        cpu.read_reg8(Reg8bit::D as usize),
+        cpu.read_reg8(Reg8bit::E as usize),
+        cpu.read_reg8(Reg8bit::H as usize),
+        cpu.read_reg8(Reg8bit::L as usize),
+        cpu.read_sp(),
+        cpu.read_pc(),
+        cpu.read_memory(cpu.read_pc() as usize),
+        cpu.read_memory(cpu.read_pc() as usize + 1),
+        cpu.read_memory(cpu.read_pc() as usize + 2),
+        cpu.read_memory(cpu.read_pc() as usize + 3),
+    )?;
+
+    Ok(())
 }
 
 pub fn sleep() {
