@@ -155,7 +155,8 @@ impl Opcode {
     pub fn ldh_a_n(&self, cpu: &mut Cpu) {
         let pc = cpu.read_pc() as usize;
         let index = LDH_ADDR_MSB_MASK | cpu.read_memory(pc - 1) as usize;
-        cpu.write_reg8(Reg8bit::A as usize, cpu.read_memory(index));
+        let value = cpu.read_memory(index);
+        cpu.write_reg8(Reg8bit::A as usize, value);
     }
 
     //Load to the address specified by the 8-bit immediate data n, data from the 8-bit A register. The full 16-bit

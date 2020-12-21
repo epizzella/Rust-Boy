@@ -38,7 +38,7 @@ fn main() {
             gameboy_cpu.write_memory(0xff02, 0x0)
         }
 
-        sleep();
+        //sleep();
     }
 
     //    println!("End of Program");

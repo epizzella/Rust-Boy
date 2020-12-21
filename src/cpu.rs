@@ -47,19 +47,22 @@ pub enum Reg16bit {
 //Public Methods
 impl Cpu {
     pub fn new() -> Self {
-        Self {
+        let mut cpu = Self {
             registers: [0x00, 0x13, 0x00, 0xD8, 0x01, 0x4D, 0xB0, 0x01],
             sp: 0xfffe, //Top of stack, stack grows down
             pc: 0x0100, //where rom execution starts after bootstrap
             memory: [0; 0x10000],
-        }
+        };
+
+        cpu.memory[0xff44] = 0x90;
+        cpu
     }
 
     pub fn execute_step(&mut self, unprifxed_instructions: &OpcodeTable) {
         let current_opcode = self.memory[self.pc as usize] as usize;
 
-        print_log_console(self);
-        //print_log_file(self);
+        //print_log_console(self);
+        print_log_file(self);
 
         if current_opcode != 0xCB {
             self.pc = self
@@ -69,7 +72,7 @@ impl Cpu {
 
             (instruction.handler)(&instruction, self);
         } else {
-            println!("Opcode 0xCD not impelented");
+            println!("Opcode 0xCB not impelented");
         }
     }
 
@@ -323,7 +326,7 @@ impl Cpu {
     }
 
     pub fn and_a_n(&mut self) {
-        self.registers[Reg8bit::A as usize] &= self.registers[(self.pc as usize) - 1];
+        self.registers[Reg8bit::A as usize] &= self.memory[(self.pc as usize) - 1];
 
         self.check_a_for_zero(Reg8bit::A as usize);
         self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR;
@@ -332,8 +335,8 @@ impl Cpu {
     }
 
     pub fn and_a_hl(&mut self) {
-        let reg_index = self.read_reg16(Reg16bit::HL as usize) as usize;
-        self.registers[Reg8bit::A as usize] &= self.registers[reg_index];
+        let index = self.read_reg16(Reg16bit::HL as usize) as usize;
+        self.registers[Reg8bit::A as usize] &= self.memory[index];
 
         self.check_a_for_zero(Reg8bit::A as usize);
         self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR;
@@ -352,7 +355,7 @@ impl Cpu {
     }
 
     pub fn xor_a_n(&mut self) {
-        self.registers[Reg8bit::A as usize] ^= self.registers[(self.pc as usize) - 1];
+        self.registers[Reg8bit::A as usize] ^= self.memory[(self.pc as usize) - 1];
 
         self.check_a_for_zero(Reg8bit::A as usize);
         self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR;
@@ -361,8 +364,8 @@ impl Cpu {
     }
 
     pub fn xor_a_hl(&mut self) {
-        let reg_index = self.read_reg16(Reg16bit::HL as usize) as usize;
-        self.registers[Reg8bit::A as usize] ^= self.registers[reg_index];
+        let index = self.read_reg16(Reg16bit::HL as usize) as usize;
+        self.registers[Reg8bit::A as usize] ^= self.memory[index];
 
         self.check_a_for_zero(Reg8bit::A as usize);
         self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR;
@@ -381,7 +384,7 @@ impl Cpu {
     }
 
     pub fn or_a_n(&mut self) {
-        self.registers[Reg8bit::A as usize] |= self.registers[(self.pc as usize) - 1];
+        self.registers[Reg8bit::A as usize] |= self.memory[(self.pc as usize) - 1];
 
         self.check_a_for_zero(Reg8bit::A as usize);
         self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR;
@@ -390,8 +393,8 @@ impl Cpu {
     }
 
     pub fn or_a_hl(&mut self) {
-        let reg_index = self.read_reg16(Reg16bit::HL as usize) as usize;
-        self.registers[Reg8bit::A as usize] |= self.registers[reg_index];
+        let index = self.read_reg16(Reg16bit::HL as usize) as usize;
+        self.registers[Reg8bit::A as usize] |= self.memory[index];
 
         self.check_a_for_zero(Reg8bit::A as usize);
         self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR;
