@@ -5,7 +5,7 @@ pub struct OpcodeTable {
 }
 
 impl OpcodeTable {
-    pub fn init_unprefix_insturction_table() -> Self {
+    pub fn init_unprefix_instruction_table() -> Self {
         Self {
             table: [
                 Opcode::new(0x00, "No Op".to_string(), 1, 1, Opcode::nop),
@@ -269,7 +269,7 @@ impl OpcodeTable {
         }
     }
 
-    pub fn init_prefix_insctruction_table() -> Self {
+    pub fn init_prefix_instruction_table() -> Self {
         Self {
             table: [
                 Opcode::new(0x00, "RLC B".to_string(), 2, 2, Opcode::rlc_r),

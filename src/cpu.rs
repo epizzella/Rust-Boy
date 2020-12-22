@@ -1,5 +1,5 @@
-use crate::opcode_table::*;
 use crate::windows_interface::*;
+use crate::{instructions::Opcode, opcode_table::*};
 
 pub struct Cpu {
     //registers -- note: that A is the accumulator.  All maths are done through this reg.
@@ -58,22 +58,28 @@ impl Cpu {
         cpu
     }
 
-    pub fn execute_step(&mut self, unprifxed_instructions: &OpcodeTable) {
+    pub fn execute_step(
+        &mut self,
+        unprifxed_instructions: &OpcodeTable,
+        prifxed_instructions: &OpcodeTable,
+    ) {
         let current_opcode = self.memory[self.pc as usize] as usize;
+        let instruction: &Opcode;
+
+        self.pc = self
+            .pc
+            .wrapping_add(unprifxed_instructions.table[current_opcode].get_length() as u16);
 
         //print_log_console(self);
         print_log_file(self);
 
         if current_opcode != 0xCB {
-            self.pc = self
-                .pc
-                .wrapping_add(unprifxed_instructions.table[current_opcode].get_length() as u16);
-            let instruction = &unprifxed_instructions.table[current_opcode];
-
-            (instruction.handler)(&instruction, self);
+            instruction = &unprifxed_instructions.table[current_opcode];
         } else {
-            println!("Opcode 0xCB not impelented");
+            instruction = &prifxed_instructions.table[current_opcode - 1];
         }
+
+        (instruction.handler)(&instruction, self);
     }
 
     //Write 8 bit register with value n
@@ -599,7 +605,6 @@ impl Cpu {
 
         value
     }
-
 
     //Rotates value to the left with the carry's value put into bit 0 and bit 7 is put into the carry.
     pub fn rl_n(&mut self, mut value: u8) -> u8 {

@@ -11,7 +11,8 @@ use windows_interface::*;
 
 fn main() {
     let mut gameboy_cpu: Cpu = Cpu::new();
-    let unprifxed_instructions = OpcodeTable::init_unprefix_insturction_table();
+    let unprifxed_instructions = OpcodeTable::init_unprefix_instruction_table();
+    let prifxed_instructions = OpcodeTable::init_prefix_instruction_table();
 
     //get command line arguments
     let args: Vec<String> = env::args().collect();
@@ -23,12 +24,12 @@ fn main() {
     //load_rom("C:\\Repos\\GBCEmulator\\roms\\Tetris.gb", &mut gameboy_cpu);
 
     load_rom(
-        "C:\\Repos\\GBCEmulator\\roms\\cpu_test\\01-special.gb",
+        "C:\\Repos\\GBCEmulator\\roms\\cpu_test\\07-jr,jp,call,ret,rst.gb",
         &mut gameboy_cpu,
     );
 
     loop {
-        gameboy_cpu.execute_step(&unprifxed_instructions);
+        gameboy_cpu.execute_step(&unprifxed_instructions, &prifxed_instructions);
 
         if gameboy_cpu.read_memory(0xff02) > 0 {
             let mut buff = [0; 4];

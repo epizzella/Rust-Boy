@@ -15,7 +15,6 @@ pub struct Opcode {
 
 //For information on the implementation of these opcodes please see Chapter 2 of Game Boy: Complete Technical Reference
 
-/**********8 bit load instructions**********/
 impl Opcode {
     pub fn new(
         opcode: u8,
@@ -25,7 +24,6 @@ impl Opcode {
         function: fn(&Self, &mut Cpu),
     ) -> Self {
         let test_opcode = Self {
-            //error here
             opcode_name: opcode_name,
             opcode_byte: opcode,
             number_of_cycles: cycles,
