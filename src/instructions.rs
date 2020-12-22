@@ -1,7 +1,7 @@
 use crate::cpu::*;
 
 const Y_BITS_MASK: u8 = 0x38;
-const Z_REG_MASK: u8 = 0x07;
+const Z_BITS_MASK: u8 = 0x07;
 const P_REG_MASK: u8 = 0x30;
 const LDH_ADDR_MSB_MASK: usize = 0xff00;
 
@@ -46,7 +46,7 @@ impl Opcode {
     //0b01yyyzzz
     pub fn load_r_r(&self, cpu: &mut Cpu) {
         let register_y = ((self.opcode_byte & Y_BITS_MASK) >> 3) as usize;
-        let register_z = (self.opcode_byte & Z_REG_MASK) as usize;
+        let register_z = (self.opcode_byte & Z_BITS_MASK) as usize;
         cpu.write_reg8_with_reg8(register_y, register_z);
     }
 
@@ -69,7 +69,7 @@ impl Opcode {
     //Load to the absolute address specified by the 16-bit register HL, data from the 8-bit register r.
     //0b01110zzz
     pub fn load_hl_r(&self, cpu: &mut Cpu) {
-        let register_z = (self.opcode_byte & Z_REG_MASK) as usize;
+        let register_z = (self.opcode_byte & Z_BITS_MASK) as usize;
         let index = cpu.read_reg16(Reg16bit::HL as usize) as usize;
         cpu.write_memory(index, cpu.read_reg8(register_z));
     }
@@ -329,7 +329,7 @@ impl Opcode {
     //Add to the 8-bit register A, data from register zzz
     //0b10000zzz
     pub fn add_a_r(&self, cpu: &mut Cpu) {
-        let register_z: usize = (self.opcode_byte & Z_REG_MASK) as usize;
+        let register_z: usize = (self.opcode_byte & Z_BITS_MASK) as usize;
         cpu.add_a_r(register_z as usize, false);
     }
 
@@ -348,7 +348,7 @@ impl Opcode {
     //Add to the 8-bit register A, data from register zzz
     //0b10000zzz
     pub fn adc_a_r(&self, cpu: &mut Cpu) {
-        let register_z: usize = (self.opcode_byte & Z_REG_MASK) as usize;
+        let register_z: usize = (self.opcode_byte & Z_BITS_MASK) as usize;
         cpu.add_a_r(register_z as usize, true);
     }
 
@@ -367,7 +367,7 @@ impl Opcode {
     //Sub from the 8-bit register A, data from register zzz
     //0b10010zzz
     pub fn sub_a_r(&self, cpu: &mut Cpu) {
-        let register_z: usize = (self.opcode_byte & Z_REG_MASK) as usize;
+        let register_z: usize = (self.opcode_byte & Z_BITS_MASK) as usize;
         cpu.sub_a_r(register_z as usize, false);
     }
 
@@ -386,7 +386,7 @@ impl Opcode {
     //Sub from the 8-bit register A, data from register zzz
     //0b10010zzz
     pub fn sbc_a_r(&self, cpu: &mut Cpu) {
-        let register_z: usize = (self.opcode_byte & Z_REG_MASK) as usize;
+        let register_z: usize = (self.opcode_byte & Z_BITS_MASK) as usize;
         cpu.sub_a_r(register_z as usize, true);
     }
 
@@ -405,7 +405,7 @@ impl Opcode {
     //And to the 8-bit register A, data from register zzz
     //0b10100zzz
     pub fn and_a_r(&self, cpu: &mut Cpu) {
-        let register_z: usize = (self.opcode_byte & Z_REG_MASK) as usize;
+        let register_z: usize = (self.opcode_byte & Z_BITS_MASK) as usize;
         cpu.and_a_r(register_z);
     }
 
@@ -424,7 +424,7 @@ impl Opcode {
     //Xor to the 8-bit register A, data from register zzz
     //0b10101zzz
     pub fn xor_a_r(&self, cpu: &mut Cpu) {
-        let register_z: usize = (self.opcode_byte & Z_REG_MASK) as usize;
+        let register_z: usize = (self.opcode_byte & Z_BITS_MASK) as usize;
         cpu.xor_a_r(register_z);
     }
 
@@ -443,7 +443,7 @@ impl Opcode {
     //Or to the 8-bit register A, data from register zzz
     //0b10111zzz
     pub fn or_a_r(&self, cpu: &mut Cpu) {
-        let register_z: usize = (self.opcode_byte & Z_REG_MASK) as usize;
+        let register_z: usize = (self.opcode_byte & Z_BITS_MASK) as usize;
         cpu.or_a_r(register_z);
     }
 
@@ -462,7 +462,7 @@ impl Opcode {
     //Compare to the 8-bit register A, data from register zzz
     pub fn cp_a_r(&self, cpu: &mut Cpu) {
         let value = cpu.read_reg8(Reg8bit::A as usize);
-        let register_z: usize = (self.opcode_byte & Z_REG_MASK) as usize;
+        let register_z: usize = (self.opcode_byte & Z_BITS_MASK) as usize;
         cpu.sub_a_r(register_z as usize, false);
         cpu.write_reg8(Reg8bit::A as usize, value);
     }
@@ -592,6 +592,74 @@ impl Opcode {
         cpu.rra();
     }
 
+    //Rotates register r to the left with bit 7 being moved to bit 0 and also stored into carry
+    pub fn rlc_r(&self, cpu: &mut Cpu) {
+        let reg_index = (self.opcode_byte & Z_BITS_MASK) as usize;
+        let reg_value = cpu.read_reg8(reg_index);
+        let new_value = cpu.rlc_n(reg_value);
+        cpu.write_reg8(reg_index, new_value);
+    }
+
+    ////Rotates register r to the right with bit 0 being moved to bit 7 and also stored into carry
+    pub fn rrc_r(&self, cpu: &mut Cpu) {
+        let reg_index = ((self.opcode_byte & Z_BITS_MASK) - 8) as usize;
+        let reg_value = cpu.read_reg8(reg_index);
+        let new_value = cpu.rrc_n(reg_value);
+        cpu.write_reg8(reg_index, new_value);
+    }
+
+    //Rotates data from the absolute address specified by the 16-bit register HL
+    //to the left with bit 7 being moved to bit 0 and also stored into carry
+    pub fn rlc_hl(&self, cpu: &mut Cpu) {
+        let mem_index = cpu.read_reg16(Reg16bit::HL as usize) as usize;
+        let mem_value = cpu.read_memory(mem_index);
+        let new_value = cpu.rlc_n(mem_value);
+        cpu.write_memory(mem_index, new_value);
+    }
+
+    //Rotates data from the absolute address specified by the 16-bit register HL
+    //to the right with bit 0 being moved to bit 7 and also stored into carry
+    pub fn rrc_hl(&self, cpu: &mut Cpu) {
+        let mem_index = cpu.read_reg16(Reg16bit::HL as usize) as usize;
+        let mem_value = cpu.read_memory(mem_index);
+        let new_value = cpu.rrc_n(mem_value);
+        cpu.write_memory(mem_index, new_value);
+    }
+
+    //Rotates register r to the left with the carry's value put into bit 0 and bit 7 is put into the carry.
+    pub fn rl_r(&self, cpu: &mut Cpu) {
+        let reg_index = (self.opcode_byte & Z_BITS_MASK) as usize;
+        let reg_value = cpu.read_reg8(reg_index);
+        let new_value = cpu.rl_n(reg_value);
+        cpu.write_reg8(reg_index, new_value);
+    }
+
+    //Rotates value to the right with the carry's value put into bit 7 and bit 0 is put into the carry.
+    pub fn rr_r(&self, cpu: &mut Cpu) {
+        let reg_index = ((self.opcode_byte & Z_BITS_MASK) - 8) as usize;
+        let reg_value = cpu.read_reg8(reg_index);
+        let new_value = cpu.rr_n(reg_value);
+        cpu.write_reg8(reg_index, new_value);
+    }
+
+    //Rotates data from the absolute address specified by the 16-bit register HL
+    //
+    pub fn rl_hl(&self, cpu: &mut Cpu) {
+        let mem_index = cpu.read_reg16(Reg16bit::HL as usize) as usize;
+        let mem_value = cpu.read_memory(mem_index);
+        let new_value = cpu.rl_n(mem_value);
+        cpu.write_memory(mem_index, new_value);
+    }
+
+    //Rotates data from the absolute address specified by the 16-bit register HL
+    //
+    pub fn rr_hl(&self, cpu: &mut Cpu) {
+        let mem_index = cpu.read_reg16(Reg16bit::HL as usize) as usize;
+        let mem_value = cpu.read_memory(mem_index);
+        let new_value = cpu.rr_n(mem_value);
+        cpu.write_memory(mem_index, new_value);
+    }
+
     /********** CPU-Control commands **********/
 
     //Carry bit xored with 1
@@ -659,7 +727,7 @@ impl Opcode {
         let check_flag = (self.opcode_byte & Y_BITS_MASK) >> 3;
 
         //check the appropriate flag
-        let jump = Self::check_branch(cpu, check_flag);
+        let jump = Self::check_flag(cpu, check_flag);
 
         if jump {
             self.jp_nn(cpu);
@@ -683,7 +751,7 @@ impl Opcode {
         let check_flag = ((self.opcode_byte & Y_BITS_MASK) >> 3) - 4; //subtract 4 to get correct indexing
 
         //check the appropriate flag
-        let jump = Self::check_branch(cpu, check_flag);
+        let jump = Self::check_flag(cpu, check_flag);
 
         if jump {
             self.jr_dd(cpu);
@@ -714,7 +782,7 @@ impl Opcode {
         let check_flag = (self.opcode_byte & Y_BITS_MASK) >> 3;
 
         //check the appropriate flag
-        let call = Self::check_branch(cpu, check_flag);
+        let call = Self::check_flag(cpu, check_flag);
 
         if call {
             self.call_nn(cpu);
@@ -743,7 +811,7 @@ impl Opcode {
         let check_flag = (self.opcode_byte & Y_BITS_MASK) >> 3;
 
         //check the appropriate flag
-        let ret = Self::check_branch(cpu, check_flag);
+        let ret = Self::check_flag(cpu, check_flag);
 
         if ret {
             self.ret(cpu);
@@ -775,7 +843,7 @@ impl Opcode {
     }
 
     #[inline]
-    fn check_branch(cpu: &Cpu, check_flag: u8) -> bool {
+    fn check_flag(cpu: &Cpu, check_flag: u8) -> bool {
         match check_flag {
             0 => !cpu.get_zero_bit(),
             1 => cpu.get_zero_bit(),
