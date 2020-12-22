@@ -658,6 +658,62 @@ impl Opcode {
         cpu.write_memory(mem_index, new_value);
     }
 
+    pub fn sla_r(&self, cpu: &mut Cpu) {
+        let reg_index = (self.opcode_byte & Z_BITS_MASK) as usize;
+        let reg_value = cpu.read_reg8(reg_index);
+        let new_value = cpu.shift_left_arithmetic(reg_value);
+        cpu.write_reg8(reg_index, new_value);
+    }
+
+    pub fn sla_hl(&self, cpu: &mut Cpu) {
+        let mem_index = cpu.read_reg16(Reg16bit::HL as usize) as usize;
+        let mem_value = cpu.read_memory(mem_index);
+        let new_value = cpu.shift_left_arithmetic(mem_value);
+        cpu.write_memory(mem_index, new_value);
+    }
+
+    pub fn swap_r(&self, cpu: &mut Cpu) {
+        let reg_index = (self.opcode_byte & Z_BITS_MASK) as usize;
+        let reg_value = cpu.read_reg8(reg_index);
+        let new_value = cpu.swap(reg_value);
+        cpu.write_reg8(reg_index, new_value);
+    }
+
+    pub fn swap_hl(&self, cpu: &mut Cpu) {
+        let mem_index = cpu.read_reg16(Reg16bit::HL as usize) as usize;
+        let mem_value = cpu.read_memory(mem_index);
+        let new_value = cpu.swap(mem_value);
+        cpu.write_memory(mem_index, new_value);
+    }
+
+    pub fn sra_r(&self, cpu: &mut Cpu) {
+        let reg_index = ((self.opcode_byte & Z_BITS_MASK) - 8) as usize;
+        let reg_value = cpu.read_reg8(reg_index);
+        let new_value = cpu.shift_right_arithmetic(reg_value);
+        cpu.write_reg8(reg_index, new_value);
+    }
+
+    pub fn sra_hl(&self, cpu: &mut Cpu) {
+        let mem_index = cpu.read_reg16(Reg16bit::HL as usize) as usize;
+        let mem_value = cpu.read_memory(mem_index);
+        let new_value = cpu.shift_right_arithmetic(mem_value);
+        cpu.write_memory(mem_index, new_value);
+    }
+
+    pub fn srl_r(&self, cpu: &mut Cpu) {
+        let reg_index = ((self.opcode_byte & Z_BITS_MASK) - 8) as usize;
+        let reg_value = cpu.read_reg8(reg_index);
+        let new_value = cpu.shift_right_logical(reg_value);
+        cpu.write_reg8(reg_index, new_value);
+    }
+
+    pub fn srl_hl(&self, cpu: &mut Cpu) {
+        let mem_index = cpu.read_reg16(Reg16bit::HL as usize) as usize;
+        let mem_value = cpu.read_memory(mem_index);
+        let new_value = cpu.shift_right_logical(mem_value);
+        cpu.write_memory(mem_index, new_value);
+    }
+
     /********** CPU-Control commands **********/
 
     //Carry bit xored with 1

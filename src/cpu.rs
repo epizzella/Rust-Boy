@@ -650,6 +650,75 @@ impl Cpu {
         value
     }
 
+    pub fn shift_left_arithmetic(&mut self, value: u8) -> u8 {
+        let v = value.overflowing_shl(1);
+
+        self.zero_check_u8(v.0);
+
+        //check if we carried
+        if v.1 {
+            self.set_carry_bit();
+        } else {
+            self.clear_carry_bit();
+        }
+
+        self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR & F_HALF_CARRY_CLR;
+
+        v.0
+    }
+
+    pub fn swap(&mut self, value: u8) -> u8 {
+        let mut v = value.overflowing_shl(4);
+        let new_upper = v.0;
+
+        v = value.overflowing_shr(4);
+        let new_lower = v.0;
+
+        self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR & F_HALF_CARRY_CLR & F_CARRY_CLR;
+
+        let ret = new_upper | new_lower;
+        self.zero_check_u8(ret);
+        ret
+    }
+
+    pub fn shift_right_arithmetic(&mut self, value: u8) -> u8 {
+        let v = value.overflowing_shr(1);
+
+        let mut ret = v.0;
+        //set most siginifcant bit to 1 if it was 1 beofre the shift.
+        if value > 127 {
+            ret |= 0x80;
+        }
+
+        self.zero_check_u8(ret);
+
+        //check if we carried
+        if v.1 {
+            self.set_carry_bit();
+        } else {
+            self.clear_carry_bit();
+        }
+
+        self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR & F_HALF_CARRY_CLR;
+        ret
+    }
+
+    pub fn shift_right_logical(&mut self, value: u8) -> u8 {
+        let v = value.overflowing_shr(1);
+
+        self.zero_check_u8(v.0);
+
+        //check if we carried
+        if v.1 {
+            self.set_carry_bit();
+        } else {
+            self.clear_carry_bit();
+        }
+
+        self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR & F_HALF_CARRY_CLR;
+        v.0
+    }
+
     //Carry bit is xored and saved to itself
     pub fn ccf(&mut self) {
         let carry_flag = self.get_carry_bit();
@@ -732,7 +801,7 @@ impl Cpu {
         }
     }
 
-    //checks if a carry occured for add with register A and sets the carry flag in register F if true
+    //checks if a carry occured for sub with register A and sets the carry flag in register F if true
     #[inline]
     fn check_for_carry_sub(&mut self, value: u8, carry: u8) {
         let z = self.registers[Reg8bit::A as usize]
@@ -763,7 +832,7 @@ impl Cpu {
         }
     }
 
-    //checks if a half carry occured for add with register A and sets the half carry flag in register F if true
+    //checks if a half carry occured for sub with register A and sets the half carry flag in register F if true
     #[inline]
     fn check_for_half_carry_sub(&mut self, minuend: u8, subtrahend: u8, carry: u8) {
         //mask off the bottom of both bytes subtract them
@@ -792,7 +861,7 @@ impl Cpu {
         }
     }
 
-    //checks if a half carry occured for add with register A and sets the half carry flag in register F if true
+    //checks if a half carry occured for sub with register A and sets the half carry flag in register F if true
     #[inline]
     fn check_for_half_carry_16bit(&mut self, reg: u16, addend: u16) {
         //mask off the bottom of both numbers add them together; then mask off the top of the result
