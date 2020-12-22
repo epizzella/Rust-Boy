@@ -35,7 +35,7 @@ fn main() {
             let mut buff = [0; 4];
             let output = (gameboy_cpu.read_memory(0xff01) as char).encode_utf8(&mut buff);
 
-            println!("{}", output);
+            print!("{}", output);
             gameboy_cpu.write_memory(0xff02, 0x0)
         }
 

@@ -295,7 +295,7 @@ impl Opcode {
     //Push to the stack memory, data from the 16-bit register AF.
     //0b11100101
     pub fn push_af(&self, cpu: &mut Cpu) {
-        cpu.push_rr(Reg16bit::AF);
+        cpu.push_af();
     }
 
     //Pops to the 16-bit register BD, data from the stack memory.
@@ -319,7 +319,7 @@ impl Opcode {
     //Pops to the 16-bit register AF, data from the stack memory.
     //0b11110001
     pub fn pop_af(&self, cpu: &mut Cpu) {
-        cpu.pop_rr(Reg16bit::AF);
+        cpu.pop_af();
     }
 
     /********** 8bit-Arithmetic/logical Commands **********/
@@ -570,39 +570,51 @@ impl Opcode {
     //Rotates register A to the left with bit 7 being moved to bit 0 and also stored into carry
     //0b00000111/0x07
     pub fn rlca(&self, cpu: &mut Cpu) {
-        cpu.rlca();
+        let reg_index = Reg8bit::A as usize;
+        let reg_value = cpu.read_reg8(reg_index);
+        let new_value = cpu.rlc_n(reg_value, false);
+        cpu.write_reg8(reg_index, new_value);
     }
 
     //Rotates register A to the left with the carry's value put into bit 0 and bit 7 is put into the carry.
     //0b00010111/0x17
     pub fn rla(&self, cpu: &mut Cpu) {
-        cpu.rla();
+        let reg_index = Reg8bit::A as usize;
+        let reg_value = cpu.read_reg8(reg_index);
+        let new_value = cpu.rl_n(reg_value, false);
+        cpu.write_reg8(reg_index, new_value);
     }
 
     //Rotates register A to the right with bit 0 being moved to bit 7 and also stored into carry
     pub fn rrca(&self, cpu: &mut Cpu) {
-        cpu.rrca();
+        let reg_index = Reg8bit::A as usize;
+        let reg_value = cpu.read_reg8(reg_index);
+        let new_value = cpu.rrc_n(reg_value, false);
+        cpu.write_reg8(reg_index, new_value);
     }
 
     //Rotates register A to the right with the carry's value put into bit 7 and bit 0 is put into the carry.
     //0b00011111/0x1F
     pub fn rra(&self, cpu: &mut Cpu) {
-        cpu.rra();
+        let reg_index = Reg8bit::A as usize;
+        let reg_value = cpu.read_reg8(reg_index);
+        let new_value = cpu.rr_n(reg_value, false);
+        cpu.write_reg8(reg_index, new_value);
     }
 
     //Rotates register r to the left with bit 7 being moved to bit 0 and also stored into carry
     pub fn rlc_r(&self, cpu: &mut Cpu) {
         let reg_index = (self.opcode_byte & Z_BITS_MASK) as usize;
         let reg_value = cpu.read_reg8(reg_index);
-        let new_value = cpu.rlc_n(reg_value);
+        let new_value = cpu.rlc_n(reg_value, true);
         cpu.write_reg8(reg_index, new_value);
     }
 
     ////Rotates register r to the right with bit 0 being moved to bit 7 and also stored into carry
     pub fn rrc_r(&self, cpu: &mut Cpu) {
-        let reg_index = ((self.opcode_byte & Z_BITS_MASK) - 8) as usize;
+        let reg_index = (self.opcode_byte & Z_BITS_MASK) as usize;
         let reg_value = cpu.read_reg8(reg_index);
-        let new_value = cpu.rrc_n(reg_value);
+        let new_value = cpu.rrc_n(reg_value, true);
         cpu.write_reg8(reg_index, new_value);
     }
 
@@ -611,7 +623,7 @@ impl Opcode {
     pub fn rlc_hl(&self, cpu: &mut Cpu) {
         let mem_index = cpu.read_reg16(Reg16bit::HL as usize) as usize;
         let mem_value = cpu.read_memory(mem_index);
-        let new_value = cpu.rlc_n(mem_value);
+        let new_value = cpu.rlc_n(mem_value, true);
         cpu.write_memory(mem_index, new_value);
     }
 
@@ -620,7 +632,7 @@ impl Opcode {
     pub fn rrc_hl(&self, cpu: &mut Cpu) {
         let mem_index = cpu.read_reg16(Reg16bit::HL as usize) as usize;
         let mem_value = cpu.read_memory(mem_index);
-        let new_value = cpu.rrc_n(mem_value);
+        let new_value = cpu.rrc_n(mem_value, true);
         cpu.write_memory(mem_index, new_value);
     }
 
@@ -628,15 +640,15 @@ impl Opcode {
     pub fn rl_r(&self, cpu: &mut Cpu) {
         let reg_index = (self.opcode_byte & Z_BITS_MASK) as usize;
         let reg_value = cpu.read_reg8(reg_index);
-        let new_value = cpu.rl_n(reg_value);
+        let new_value = cpu.rl_n(reg_value, true);
         cpu.write_reg8(reg_index, new_value);
     }
 
     //Rotates value to the right with the carry's value put into bit 7 and bit 0 is put into the carry.
     pub fn rr_r(&self, cpu: &mut Cpu) {
-        let reg_index = ((self.opcode_byte & Z_BITS_MASK) - 8) as usize;
+        let reg_index = (self.opcode_byte & Z_BITS_MASK) as usize;
         let reg_value = cpu.read_reg8(reg_index);
-        let new_value = cpu.rr_n(reg_value);
+        let new_value = cpu.rr_n(reg_value, true);
         cpu.write_reg8(reg_index, new_value);
     }
 
@@ -645,7 +657,7 @@ impl Opcode {
     pub fn rl_hl(&self, cpu: &mut Cpu) {
         let mem_index = cpu.read_reg16(Reg16bit::HL as usize) as usize;
         let mem_value = cpu.read_memory(mem_index);
-        let new_value = cpu.rl_n(mem_value);
+        let new_value = cpu.rl_n(mem_value, true);
         cpu.write_memory(mem_index, new_value);
     }
 
@@ -654,7 +666,7 @@ impl Opcode {
     pub fn rr_hl(&self, cpu: &mut Cpu) {
         let mem_index = cpu.read_reg16(Reg16bit::HL as usize) as usize;
         let mem_value = cpu.read_memory(mem_index);
-        let new_value = cpu.rr_n(mem_value);
+        let new_value = cpu.rr_n(mem_value, true);
         cpu.write_memory(mem_index, new_value);
     }
 
@@ -687,7 +699,7 @@ impl Opcode {
     }
 
     pub fn sra_r(&self, cpu: &mut Cpu) {
-        let reg_index = ((self.opcode_byte & Z_BITS_MASK) - 8) as usize;
+        let reg_index = (self.opcode_byte & Z_BITS_MASK) as usize;
         let reg_value = cpu.read_reg8(reg_index);
         let new_value = cpu.shift_right_arithmetic(reg_value);
         cpu.write_reg8(reg_index, new_value);
@@ -701,7 +713,7 @@ impl Opcode {
     }
 
     pub fn srl_r(&self, cpu: &mut Cpu) {
-        let reg_index = ((self.opcode_byte & Z_BITS_MASK) - 8) as usize;
+        let reg_index = (self.opcode_byte & Z_BITS_MASK) as usize;
         let reg_value = cpu.read_reg8(reg_index);
         let new_value = cpu.shift_right_logical(reg_value);
         cpu.write_reg8(reg_index, new_value);
