@@ -834,9 +834,10 @@ impl Opcode {
         let address = cpu.read_memory_nn((pc - 2) as usize);
 
         sp = sp.wrapping_sub(1);
-        cpu.write_memory(sp as usize, ((pc & 0xff00) >> 8) as u8); //msb of pc
+        let temp_msb = (pc & 0xff00) >> 8;
+        cpu.write_memory(sp as usize, temp_msb as u8); //msb of pc
         sp = sp.wrapping_sub(1);
-        cpu.write_memory(sp as usize, (pc & 0x00ff) as u8); //lsb of pc
+        cpu.write_memory(sp as usize, pc as u8); //lsb of pc
 
         cpu.write_sp(sp);
         cpu.write_pc(address);
@@ -900,9 +901,11 @@ impl Opcode {
         let pc = cpu.read_pc();
 
         sp = sp.wrapping_sub(1);
-        cpu.write_memory(sp as usize, (pc & 0xff00 >> 8) as u8); //msb of pc
+        let temp_msb = (pc & 0xff00) >> 8;
+        cpu.write_memory(sp as usize, temp_msb as u8); //msb of pc
+
         sp = sp.wrapping_sub(1);
-        cpu.write_memory(sp as usize, (pc & 0x00ff) as u8 as u8); //lsb of pc
+        cpu.write_memory(sp as usize, pc as u8); //lsb of pc
 
         cpu.write_sp(sp);
         cpu.write_pc(address);

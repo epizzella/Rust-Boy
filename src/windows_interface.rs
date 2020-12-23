@@ -29,7 +29,7 @@ pub fn print_log_console(cpu: &Cpu) {
     let pc = cpu.read_pc();
 
     println!(
-        "A: {:02X} F: {:02X} B: {:02X} C: {:02X} D: {:02X} E: {:02X} H: {:02X} L: {:02X} SP: {:02X} PC: 00:{:02X} Mem({:02X} {:02X} {:02X} {:02X}) [STACK]({:02X} {:02X} )",
+        "A: {:02X} F: {:02X} B: {:02X} C: {:02X} D: {:02X} E: {:02X} H: {:02X} L: {:02X} SP: {:02X} PC: 00:{:02X} Mem({:02X} {:02X} {:02X} {:02X}) [STACK]({:02X} {:02X})",
         cpu.read_reg8(Reg8bit::A as usize),
         cpu.read_reg8(Reg8bit::F as usize),
         cpu.read_reg8(Reg8bit::B as usize),
