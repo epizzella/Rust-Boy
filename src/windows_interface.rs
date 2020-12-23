@@ -53,6 +53,9 @@ pub fn print_log_file(cpu: &Cpu) -> std::io::Result<()> {
     let path = Path::new("DMG_log.txt");
     let f: File;
 
+    let sp = cpu.read_sp();
+    let pc = cpu.read_pc();
+
     if path.exists() {
         f = OpenOptions::new()
             .append(true)
@@ -74,12 +77,12 @@ pub fn print_log_file(cpu: &Cpu) -> std::io::Result<()> {
         cpu.read_reg8(Reg8bit::E as usize),
         cpu.read_reg8(Reg8bit::H as usize),
         cpu.read_reg8(Reg8bit::L as usize),
-        cpu.read_sp(),
-        cpu.read_pc(),
-        cpu.read_memory(cpu.read_pc() as usize),
-        cpu.read_memory(cpu.read_pc() as usize + 1),
-        cpu.read_memory(cpu.read_pc() as usize + 2),
-        cpu.read_memory(cpu.read_pc() as usize + 3),
+        sp,
+        pc,
+        cpu.read_memory(pc as usize),
+        cpu.read_memory(pc as usize + 1),
+        cpu.read_memory(pc as usize + 2),
+        cpu.read_memory(pc as usize + 3),
     )?;
 
     Ok(())

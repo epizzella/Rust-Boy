@@ -55,6 +55,8 @@ impl Cpu {
         };
 
         cpu.memory[0xff44] = 0x90;
+        cpu.memory[0xff00] = 0x0f; //JOYP register
+
         cpu
     }
 
@@ -192,9 +194,10 @@ impl Cpu {
     //push 16bit AF register onto the stack
     pub fn push_af(&mut self) {
         self.sp = self.sp.wrapping_sub(1);
-        self.memory[self.sp as usize] = self.registers[Reg8bit::A as usize]; //msb
+        self.memory[self.sp as usize] = self.registers[Reg8bit::A as usize]; //Register A
         self.sp = self.sp.wrapping_sub(1);
-        self.memory[self.sp as usize] = self.registers[Reg8bit::F as usize]; //lsb
+        //Register F -- bottom four bits are supposed to always be 0
+        self.memory[self.sp as usize] = self.registers[Reg8bit::F as usize] & 0xf0;
     }
 
     //pop 16bit regsiter off of the stack
@@ -212,8 +215,8 @@ impl Cpu {
         //A and F are backwards in the array compared to other 16 bit registers
         self.write_reg16_fast(
             Reg16bit::AF as usize,
-            self.memory[(self.sp as usize) + 1], //lsb
-            self.memory[self.sp as usize],       //msb
+            self.memory[(self.sp as usize) + 1],  //Register A
+            self.memory[self.sp as usize] & 0xf0, //Register F -- bottom four bits are supposed to always be 0
         );
         self.sp = self.sp.wrapping_add(2);
     }
