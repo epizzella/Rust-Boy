@@ -71,6 +71,7 @@ impl Cpu {
 
         //windows.print_log_file(self);
 
+        //incrment pc by the length of instruction.  This will cause pc to be ahead of the instuction currently being executed.
         self.pc = self
             .pc
             .wrapping_add(unprifxed_instruct.table[current_opcode].get_length() as u16);
@@ -526,9 +527,9 @@ impl Cpu {
     //Rotates value to the left with bit 7 being moved to bit 0 and also stored into carry
     pub fn rlc_n(&mut self, mut value: u8, check_zero: bool) -> u8 {
         if value > 0x7f {
-            self.set_carry_bit()
+            self.set_carry_flag()
         } else {
-            self.clear_carry_bit()
+            self.clear_carry_flag()
         }
 
         value = value.rotate_left(1);
@@ -547,9 +548,9 @@ impl Cpu {
     //Rotates value to the right with bit 0 being moved to bit 7 and also stored into carry
     pub fn rrc_n(&mut self, mut value: u8, check_zero: bool) -> u8 {
         if value & 0x01 == 1 {
-            self.set_carry_bit()
+            self.set_carry_flag()
         } else {
-            self.clear_carry_bit()
+            self.clear_carry_flag()
         }
 
         value = value.rotate_right(1);
@@ -575,9 +576,9 @@ impl Cpu {
 
         //check if we carried
         if value > 127 {
-            self.set_carry_bit();
+            self.set_carry_flag();
         } else {
-            self.clear_carry_bit();
+            self.clear_carry_flag();
         }
 
         if check_zero {
@@ -601,9 +602,9 @@ impl Cpu {
 
         //check if we carried
         if (value & 0x01) == 1 {
-            self.set_carry_bit();
+            self.set_carry_flag();
         } else {
-            self.clear_carry_bit();
+            self.clear_carry_flag();
         }
 
         if check_zero {
@@ -624,9 +625,9 @@ impl Cpu {
 
         //check if we carried
         if value > 127 {
-            self.set_carry_bit();
+            self.set_carry_flag();
         } else {
-            self.clear_carry_bit();
+            self.clear_carry_flag();
         }
 
         self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR & F_HALF_CARRY_CLR;
@@ -658,9 +659,9 @@ impl Cpu {
 
         //check if we carried
         if (value & 0x01) == 1 {
-            self.set_carry_bit();
+            self.set_carry_flag();
         } else {
-            self.clear_carry_bit();
+            self.clear_carry_flag();
         }
 
         self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR & F_HALF_CARRY_CLR;
@@ -674,9 +675,9 @@ impl Cpu {
 
         //check if we carried
         if (value & 0x01) == 1 {
-            self.set_carry_bit();
+            self.set_carry_flag();
         } else {
-            self.clear_carry_bit();
+            self.clear_carry_flag();
         }
 
         self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR & F_HALF_CARRY_CLR;
@@ -688,33 +689,83 @@ impl Cpu {
         let carry_flag = self.get_carry_bit();
 
         if carry_flag {
-            self.clear_carry_bit()
+            self.clear_carry_flag()
         } else {
-            self.set_carry_bit();
+            self.set_carry_flag();
         }
 
-        self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR;
-        self.registers[Reg8bit::F as usize] &= F_HALF_CARRY_CLR;
+        self.clear_add_sub_flag();
+        self.clear_half_carry_flag();
     }
 
     //Sets the carry bit
     pub fn scf(&mut self) {
-        self.set_carry_bit();
-        self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR;
-        self.registers[Reg8bit::F as usize] &= F_HALF_CARRY_CLR;
+        self.set_carry_flag();
+        self.clear_add_sub_flag();
+        self.clear_half_carry_flag();
+    }
+
+    pub fn bit_check(&mut self, value: u8, bit: u8) {
+        if (value & (1 << bit)) > 0 {
+            self.clear_zero_flag();
+        } else {
+            self.clear_zero_flag();
+        }
+
+        self.clear_add_sub_flag();
+        self.set_half_carry_flag();
+    }
+
+    pub fn bit_set(&mut self, value: u8, bit: u8) -> u8 {
+        value | 1 << bit
+    }
+
+    pub fn bit_clear(&mut self, value: u8, bit: u8) -> u8 {
+        value | !(1 << bit)
     }
 }
 
 //Privat methods
 impl Cpu {
+    //Helper methods
     #[inline]
-    fn set_carry_bit(&mut self) {
+    fn set_carry_flag(&mut self) {
         self.registers[Reg8bit::F as usize] |= F_CARRY_SET;
     }
 
     #[inline]
-    fn clear_carry_bit(&mut self) {
+    fn clear_carry_flag(&mut self) {
         self.registers[Reg8bit::F as usize] &= F_CARRY_CLR;
+    }
+
+    #[inline]
+    fn set_zero_flag(&mut self) {
+        self.registers[Reg8bit::F as usize] |= F_ZERO_SET;
+    }
+
+    #[inline]
+    fn clear_zero_flag(&mut self) {
+        self.registers[Reg8bit::F as usize] &= F_ZERO_CLR;
+    }
+
+    #[inline]
+    fn set_half_carry_flag(&mut self) {
+        self.registers[Reg8bit::F as usize] |= F_HALF_CARRY_SET;
+    }
+
+    #[inline]
+    fn clear_half_carry_flag(&mut self) {
+        self.registers[Reg8bit::F as usize] &= F_HALF_CARRY_SET;
+    }
+
+    #[inline]
+    fn set_add_sub_flag(&mut self) {
+        self.registers[Reg8bit::F as usize] |= F_Add_SUB_SET;
+    }
+
+    #[inline]
+    fn clear_add_sub_flag(&mut self) {
+        self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR;
     }
 
     //checks if register A is equal to zero and sets the zero flag in register F if true
