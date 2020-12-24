@@ -60,12 +60,17 @@ impl Cpu {
         cpu
     }
 
-    pub fn execute_step(&mut self, unprifxed_instruct: &OpcodeTable, prifxed_instruct: &OpcodeTable) {
+    pub fn execute_step(
+        &mut self,
+        unprifxed_instruct: &OpcodeTable,
+        prifxed_instruct: &OpcodeTable,
+        windows: &mut WindowsInterface,
+    ) {
         let mut current_opcode = self.memory[self.pc as usize] as usize;
         let instruction: &Opcode;
 
         //print_log_console(self);
-        //print_log_file(self);
+        windows.print_log_file(self);
 
         self.pc = self
             .pc
@@ -221,13 +226,13 @@ impl Cpu {
         self.sp = self.sp.wrapping_add(2);
     }
 
-    //add a register to register a
+    //add register r to register a
     pub fn add_a_r(&mut self, reg_index: usize, add_carry: bool) {
         let addend = self.registers[reg_index];
         let carry_flag = self.registers[Reg8bit::F as usize] & F_CARRY_SET > 0;
         let carry_value = (carry_flag && add_carry) as u8;
 
-        self.check_for_carry(addend, carry_value);
+        self.check_for_carry(self.registers[Reg8bit::A as usize], addend, carry_value);
         self.check_for_half_carry(self.registers[Reg8bit::A as usize], addend, carry_value);
 
         //do the add
@@ -248,7 +253,7 @@ impl Cpu {
         let carry_flag = self.registers[Reg8bit::F as usize] & F_CARRY_SET > 0;
         let carry_value = (carry_flag && add_carry) as u8;
 
-        self.check_for_carry(addend, carry_value);
+        self.check_for_carry(self.registers[Reg8bit::A as usize], addend, carry_value);
         self.check_for_half_carry(self.registers[Reg8bit::A as usize], addend, carry_value);
 
         //do the add
@@ -268,7 +273,7 @@ impl Cpu {
         let carry_flag = self.registers[Reg8bit::F as usize] & F_CARRY_SET > 0;
         let carry_value = (carry_flag && add_carry) as u8;
 
-        self.check_for_carry(addend, carry_value);
+        self.check_for_carry(self.registers[Reg8bit::A as usize], addend, carry_value);
         self.check_for_half_carry(self.registers[Reg8bit::A as usize], addend, carry_value);
 
         //do the add
@@ -506,23 +511,12 @@ impl Cpu {
 
     pub fn add_sp_dd(&mut self) -> u16 {
         let addend = (self.memory[(self.pc as usize) - 1] as i8) as i16; //this is a signed number
+
+        //since dd is only 8bit half carry and carry are set as though this is an 8 bit operation
+        self.check_for_half_carry(self.sp as u8, addend as u8, 0);
+        self.check_for_carry(self.sp as u8, addend as u8, 0);
+
         let sum = (self.sp as i16).wrapping_add(addend) as u16; // do the math
-
-        let z = (self.sp as i16).checked_add(addend);
-        match z {
-            Some(_) => {
-                self.registers[Reg8bit::F as usize] &= F_CARRY_CLR;
-            }
-            None => {
-                self.registers[Reg8bit::F as usize] |= F_CARRY_SET;
-            }
-        }
-
-        if (sum & 0xf) < (self.sp as u16 & 0xf) {
-            self.registers[Reg8bit::F as usize] |= F_HALF_CARRY_SET;
-        } else {
-            self.registers[Reg8bit::F as usize] |= F_HALF_CARRY_CLR;
-        }
 
         self.registers[Reg8bit::F as usize] &= F_ZERO_CLR;
         self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR;
@@ -757,10 +751,8 @@ impl Cpu {
 
     //checks if a carry occured for add with register A and sets the carry flag in register F if true
     #[inline]
-    fn check_for_carry(&mut self, value: u8, carry: u8) {
-        let z = self.registers[Reg8bit::A as usize]
-            .checked_add(value)
-            .and_then(|x| x.checked_add(carry));
+    fn check_for_carry(&mut self, addend_1: u8, addend_2: u8, carry: u8) {
+        let z = addend_1.checked_add(addend_2).and_then(|x| x.checked_add(carry));
 
         match z {
             Some(_) => {
