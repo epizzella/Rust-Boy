@@ -69,8 +69,7 @@ impl Cpu {
         let mut current_opcode = self.memory[self.pc as usize] as usize;
         let instruction: &Opcode;
 
-        //print_log_console(self);
-        windows.print_log_file(self);
+        //windows.print_log_file(self);
 
         self.pc = self
             .pc
@@ -701,6 +700,8 @@ impl Cpu {
     //Sets the carry bit
     pub fn scf(&mut self) {
         self.set_carry_bit();
+        self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR;
+        self.registers[Reg8bit::F as usize] &= F_HALF_CARRY_CLR;
     }
 }
 

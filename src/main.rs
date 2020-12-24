@@ -24,8 +24,8 @@ fn main() {
     //load tetris; hard coded to work with debug
     //load_rom("C:\\Repos\\GBCEmulator\\roms\\Tetris.gb", &mut gameboy_cpu);
 
-    load_rom(
-        "C:\\Repos\\GBCEmulator\\roms\\cpu_test\\03-op sp,hl.gb",
+    WindowsInterface::load_rom(
+        "C:\\Repos\\GBCEmulator\\roms\\cpu_test\\08-misc instrs.gb",
         &mut gameboy_cpu,
     );
 
@@ -40,7 +40,7 @@ fn main() {
             gameboy_cpu.write_memory(0xff02, 0x0)
         }
 
-        //sleep();
+        //WindowsInterface::sleep();
     }
 
     //    println!("End of Program");
