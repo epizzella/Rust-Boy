@@ -36,7 +36,7 @@ impl WindowsInterface {
         let pc = cpu.read_pc();
 
         writeln!(self.buff,
-           // "A: {:02X} F: {:02X} B: {:02X} C: {:02X} D: {:02X} E: {:02X} H: {:02X} L: {:02X} SP: {:04X} PC: 00:{:04X} ({:02X} {:02X} {:02X} {:02X}) STACK ({:02X} {:02X})",
+           //"A: {:02X} F: {:02X} B: {:02X} C: {:02X} D: {:02X} E: {:02X} H: {:02X} L: {:02X} SP: {:04X} PC: 00:{:04X} ({:02X} {:02X} {:02X} {:02X}) (HL) ({:02X}) ",
             "A: {:02X} F: {:02X} B: {:02X} C: {:02X} D: {:02X} E: {:02X} H: {:02X} L: {:02X} SP: {:04X} PC: 00:{:04X} ({:02X} {:02X} {:02X} {:02X})",
             cpu.read_reg8(Reg8bit::A as usize),
             cpu.read_reg8(Reg8bit::F as usize),
@@ -52,8 +52,8 @@ impl WindowsInterface {
             cpu.read_memory(pc as usize + 1),
             cpu.read_memory(pc as usize + 2),
             cpu.read_memory(pc as usize + 3),
-    //        cpu.read_memory(sp as usize),
-    //        cpu.read_memory(sp as usize + 1),
+        //    cpu.read_memory(0x45fb),
+        //    cpu.read_memory(cpu.read_reg16(Reg16bit::HL as usize) as usize),
         )?;
 
         Ok(())

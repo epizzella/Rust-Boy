@@ -9,7 +9,7 @@ Once a simple game such as Tetris works with Rust Boy running on Windows then th
 A checklist of all Blargg CPU tests as they are tested and pass.
 
 - [X] 01-special
-- [ ] 02-interrupts
+- [X] 02-interrupts
 - [X] 03-op sp,hl
 - [X] 04-op r,imm
 - [X] 05-op rp

@@ -1,3 +1,4 @@
+use crate::timer::*;
 use crate::windows_interface::*;
 use crate::{instructions::Opcode, opcode_table::*};
 
@@ -8,8 +9,11 @@ pub struct Cpu {
     registers: [u8; 8],
     sp: u16,
     pc: u16,
+    timer: Timer,
     //Memory
     memory: [u8; 0x10000],
+    ime: bool,
+    halt: bool,
     /*
     rom_bank_0: [u8; self.BANK_00_END - self.BANK_00_START], //16KB ROM Bank 00     (in cartridge, fixed at bank 00)
     rom_bank_1: [u8; self.BANK_01_END - self.BANK_01_START], //16KB ROM Bank 01..NN (in cartridge, switchable bank number)
@@ -51,11 +55,16 @@ impl Cpu {
             registers: [0x00, 0x13, 0x00, 0xD8, 0x01, 0x4D, 0xB0, 0x01],
             sp: 0xfffe, //Top of stack, stack grows down
             pc: 0x0100, //where rom execution starts after bootstrap
+            timer: Timer::new(),
             memory: [0; 0x10000],
+            ime: false,
+            halt: false,
         };
 
         cpu.memory[0xff44] = 0x90;
         cpu.memory[0xff00] = 0x0f; //JOYP register
+        cpu.memory[INTERRUPT_ENABLE_REG] = 0x00;
+        cpu.memory[INTERRUPT_FLAG_REG] = 0xe0;
 
         cpu
     }
@@ -66,15 +75,10 @@ impl Cpu {
         prifxed_instruct: &OpcodeTable,
         windows: &mut WindowsInterface,
     ) {
+        self.check_interrupts();
+
         let mut current_opcode = self.memory[self.pc as usize] as usize;
         let instruction: &Opcode;
-
-        //windows.print_log_file(self);
-
-        //incrment pc by the length of the instruction.  This will cause pc to be ahead of the instuction currently being executed.
-        self.pc = self
-            .pc
-            .wrapping_add(unprifxed_instruct.table[current_opcode].get_length() as u16);
 
         if current_opcode != 0xCB {
             instruction = &unprifxed_instruct.table[current_opcode];
@@ -83,7 +87,22 @@ impl Cpu {
             instruction = &prifxed_instruct.table[current_opcode];
         }
 
-        (instruction.handler)(&instruction, self);
+        if self.timer.update_timers(instruction.number_of_cycles) {
+            self.set_interrupt_pending(TIMER);
+        }
+
+        //windows.print_log_file(self);
+
+        //The cpu can be halted by instruction HALT (0x76), hault resumes if a timer interrupt is depnding
+        if self.halt == false || self.get_interrupt_flag(TIMER) {
+            //incrment pc by the length of the instruction.  This will cause pc to be ahead of the instuction currently being executed.
+            self.pc = self
+                .pc
+                .wrapping_add(unprifxed_instruct.table[current_opcode].get_length() as u16);
+
+            //execute the instruction
+            (instruction.handler)(&instruction, self);
+        }
     }
 
     //Write 8 bit register with value n
@@ -155,26 +174,29 @@ impl Cpu {
     //Write a byte to memory
     #[inline]
     pub fn write_memory(&mut self, index: usize, n: u8) {
-        self.memory[index] = n;
-    }
-
-    //write two bytes to memory
-    #[inline]
-    pub fn write_memory_n_n(&mut self, index: usize, lsb: u8, msb: u8) {
-        self.memory[index] = lsb;
-        self.memory[index + 1] = msb;
+        match index {
+            TIMER_ADDR_START..=TIMER_ADDR_END => {
+                self.timer.write_memory(index, n);
+            }
+            _ => {
+                self.memory[index] = n;
+            }
+        }
     }
 
     //Read a byte from memory
     #[inline]
     pub fn read_memory(&self, index: usize) -> u8 {
-        self.memory[index]
+        match index {
+            TIMER_ADDR_START..=TIMER_ADDR_END => self.timer.read_memory(index),
+            _ => self.memory[index],
+        }
     }
 
     //Read two bytes from memory
     #[inline]
     pub fn read_memory_nn(&self, index: usize) -> u16 {
-        let value = ((self.memory[index + 1] as u16) << 8) | (self.memory[index] as u16);
+        let value = ((self.read_memory(index + 1) as u16) << 8) | (self.read_memory(index) as u16);
         value
     }
 
@@ -196,6 +218,14 @@ impl Cpu {
     #[inline]
     pub fn get_add_sub_flag(&self) -> bool {
         (self.registers[Reg8bit::F as usize] & F_Add_SUB_SET) > 0
+    }
+
+    pub fn enable_interupts(&mut self) {
+        self.ime = true;
+    }
+
+    pub fn disable_interupts(&mut self) {
+        self.ime = false;
     }
 
     //push 16bit register onto the stack
@@ -741,6 +771,21 @@ impl Cpu {
         self.clear_half_carry_flag();
     }
 
+    #[inline]
+    pub fn call(&mut self, addr: u16) {
+        let mut sp = self.read_sp();
+        let pc = self.read_pc();
+
+        sp = sp.wrapping_sub(1);
+        let temp_msb = (pc & 0xff00) >> 8;
+        self.write_memory(sp as usize, temp_msb as u8); //msb of pc
+        sp = sp.wrapping_sub(1);
+        self.write_memory(sp as usize, pc as u8); //lsb of pc
+
+        self.write_sp(sp);
+        self.write_pc(addr);
+    }
+
     pub fn bit_check(&mut self, value: u8, bit: u8) {
         if (value & (1 << bit)) > 0 {
             self.clear_zero_flag();
@@ -758,6 +803,55 @@ impl Cpu {
 
     pub fn bit_clear(&mut self, value: u8, bit: u8) -> u8 {
         value & !(1 << bit)
+    }
+
+    pub fn set_halt(&mut self) {
+        self.halt = true;
+    }
+
+    pub fn check_interrupts(&mut self) {
+        let enable_flag = self.read_memory(INTERRUPT_ENABLE_REG);
+        let mut interrupt_flag = self.read_memory(INTERRUPT_FLAG_REG);
+
+        //if all interupts are enabled
+        if self.ime {
+            if ((enable_flag & (1 << V_BLANK)) > 0) && ((interrupt_flag & (1 << V_BLANK)) > 0) {
+                self.ime = false;
+                interrupt_flag &= !(1 << V_BLANK);
+                self.call(V_BLANK_ADDR);
+            } else if ((enable_flag & (1 << LCD_STAT)) > 0) && ((interrupt_flag & (1 << LCD_STAT)) > 0) {
+                self.ime = false;
+                interrupt_flag &= !(1 << LCD_STAT);
+                self.call(LCD_STAT_ADDR);
+            } else if ((enable_flag & (1 << TIMER)) > 0) && ((interrupt_flag & (1 << TIMER)) > 0) {
+                self.ime = false;
+                interrupt_flag &= !(1 << TIMER);
+                self.call(TIMER_ADDR);
+            } else if ((enable_flag & (1 << SERIAL)) > 0) && ((interrupt_flag & (1 << SERIAL)) > 0) {
+                self.ime = false;
+                interrupt_flag &= !(1 << SERIAL);
+                self.call(SERIAL_ADDR);
+            } else if ((enable_flag & (1 << JOYPAD)) > 0) && ((interrupt_flag & (1 << JOYPAD)) > 0) {
+                self.ime = false;
+                interrupt_flag &= !(1 << JOYPAD);
+                self.call(JOYPAD_ADDR);
+            }
+
+            self.write_memory(INTERRUPT_FLAG_REG, interrupt_flag);
+        }
+    }
+
+    //Set the interrupt pending
+    fn set_interrupt_pending(&mut self, interrupt: u8) {
+        let mut interrupt_flag = self.read_memory(INTERRUPT_FLAG_REG);
+        interrupt_flag |= 1 << interrupt;
+        self.write_memory(INTERRUPT_FLAG_REG, interrupt_flag);
+    }
+
+    #[inline]
+    fn get_interrupt_flag(&mut self, interrupt: u8) -> bool {
+        let interrupt_flag = self.read_memory(INTERRUPT_FLAG_REG);
+        interrupt_flag & (1 << interrupt) > 0
     }
 }
 
@@ -937,6 +1031,18 @@ const F_Add_SUB_CLR: u8 = 0xbf; //1011 1111
 const F_HALF_CARRY_CLR: u8 = 0xdf; //1101 1111
 const F_CARRY_CLR: u8 = 0xef; //1110 1111
 
+const V_BLANK: u8 = 0;
+const LCD_STAT: u8 = 1;
+const TIMER: u8 = 2;
+const SERIAL: u8 = 3;
+const JOYPAD: u8 = 4;
+
+const V_BLANK_ADDR: u16 = 0x40;
+const LCD_STAT_ADDR: u16 = 0x48;
+const TIMER_ADDR: u16 = 0x50;
+const SERIAL_ADDR: u16 = 0x58;
+const JOYPAD_ADDR: u16 = 0x60;
+
 const BANK_00_START: usize = 0x0000;
 const BANK_00_END: usize = 0x3fff;
 const BANK_01_START: usize = 0x4000;
@@ -960,6 +1066,8 @@ const IO_END: usize = 0xff7f;
 const HRAM_START: usize = 0xff80;
 const HRAM_END: usize = 0xfffe;
 const INTERRUPT_ENABLE_REG: usize = 0xffff;
+
+const INTERRUPT_FLAG_REG: usize = 0xff0f;
 
 /*
 struct FlagRegister {

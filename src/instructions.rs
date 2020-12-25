@@ -8,7 +8,7 @@ const LDH_ADDR_MSB_MASK: usize = 0xff00;
 pub struct Opcode {
     opcode_byte: u8, //hex representatoin of the opcode
     pub opcode_name: String,
-    number_of_cycles: u8,
+    pub number_of_cycles: u8,
     pub number_of_bytes: u8, //in bytes
     pub handler: fn(&Self, &mut Cpu),
 }
@@ -265,7 +265,8 @@ impl Opcode {
         let sp_msb = sp_lsb >> 8; // shift right to get just msn
         sp_lsb &= 0x00ff; //mask to get only the lsb
 
-        cpu.write_memory_n_n(index, sp_lsb as u8, sp_msb as u8);
+        cpu.write_memory(index, sp_lsb as u8);
+        cpu.write_memory(index + 1, sp_msb as u8);
     }
 
     //Load to the 16-bit SP register, data from the 16-bit HL register.
@@ -747,7 +748,7 @@ impl Opcode {
     //halt until interrupt occurs (low power)
     //0b01110110/0x76
     pub fn halt(&self, cpu: &mut Cpu) {
-        //place holder
+        cpu.set_halt();
     }
 
     //low power standby mode (VERY low power)
@@ -759,13 +760,13 @@ impl Opcode {
     //disable interrupts, IME=0
     //0b11110010/0xf3
     pub fn di(&self, cpu: &mut Cpu) {
-        //place holder
+        cpu.disable_interupts();
     }
 
     //enable interrupts, IME=0
     //0b11111011/0xfb
     pub fn ei(&self, cpu: &mut Cpu) {
-        //place holder
+        cpu.enable_interupts();
     }
 
     /********** Jump Commands **********/
@@ -826,21 +827,10 @@ impl Opcode {
 
     //Call to nn, saves pc on the stack
     //0b11001101/0xCD
-    #[inline]
     pub fn call_nn(&self, cpu: &mut Cpu) {
-        let mut sp = cpu.read_sp();
         let pc = cpu.read_pc();
-
         let address = cpu.read_memory_nn((pc - 2) as usize);
-
-        sp = sp.wrapping_sub(1);
-        let temp_msb = (pc & 0xff00) >> 8;
-        cpu.write_memory(sp as usize, temp_msb as u8); //msb of pc
-        sp = sp.wrapping_sub(1);
-        cpu.write_memory(sp as usize, pc as u8); //lsb of pc
-
-        cpu.write_sp(sp);
-        cpu.write_pc(address);
+        cpu.call(address);
     }
 
     //Conditional Call
