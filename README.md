@@ -8,7 +8,7 @@ Once a simple game such as Tetris works with Rust Boy running on Windows then th
 ## Cpu Test Checklist
 A checklist of all Blargg CPU tests as they are tested and pass.
 
-- [ ] 01-special
+- [X] 01-special
 - [ ] 02-interrupts
 - [X] 03-op sp,hl
 - [X] 04-op r,imm
@@ -18,7 +18,7 @@ A checklist of all Blargg CPU tests as they are tested and pass.
 - [X] 08-misc instrs
 - [X] 09-op r,r
 - [X] 10-bit ops
-- [ ] 11-op a,(hl)
+- [X] 11-op a,(hl)
 
 ## MBC Checklist
 A check list of the implemented Memory Bank Controllers

@@ -506,7 +506,7 @@ impl Opcode {
     //DAA
     //0b00100111
     pub fn daa(&self, cpu: &mut Cpu) {
-        //to be figured out later
+        cpu.daa();
     }
 
     //Complement register A
@@ -967,10 +967,10 @@ impl Opcode {
     #[inline]
     fn check_flag(cpu: &Cpu, check_flag: u8) -> bool {
         match check_flag {
-            0 => !cpu.get_zero_bit(),
-            1 => cpu.get_zero_bit(),
-            2 => !cpu.get_carry_bit(),
-            3 => cpu.get_carry_bit(),
+            0 => !cpu.get_zero_flag(),
+            1 => cpu.get_zero_flag(),
+            2 => !cpu.get_carry_flag(),
+            3 => cpu.get_carry_flag(),
             _ => {
                 println!("Bad conditional call!");
                 false

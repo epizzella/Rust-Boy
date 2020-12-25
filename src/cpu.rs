@@ -179,13 +179,23 @@ impl Cpu {
     }
 
     #[inline]
-    pub fn get_zero_bit(&self) -> bool {
+    pub fn get_zero_flag(&self) -> bool {
         (self.registers[Reg8bit::F as usize] & F_ZERO_SET) > 0
     }
 
     #[inline]
-    pub fn get_carry_bit(&self) -> bool {
+    pub fn get_carry_flag(&self) -> bool {
         (self.registers[Reg8bit::F as usize] & F_CARRY_SET) > 0
+    }
+
+    #[inline]
+    pub fn get_half_carry_flag(&self) -> bool {
+        (self.registers[Reg8bit::F as usize] & F_HALF_CARRY_SET) > 0
+    }
+
+    #[inline]
+    pub fn get_add_sub_flag(&self) -> bool {
+        (self.registers[Reg8bit::F as usize] & F_Add_SUB_SET) > 0
     }
 
     //push 16bit register onto the stack
@@ -509,6 +519,32 @@ impl Cpu {
         self.sp = self.sp.wrapping_sub(1);
     }
 
+    pub fn daa(&mut self) {
+        let mut reg_a = self.read_reg8(Reg8bit::A as usize);
+
+        if !self.get_add_sub_flag() {
+            if self.get_carry_flag() || reg_a > 0x99 {
+                reg_a = reg_a.wrapping_add(0x60);
+                self.set_carry_flag();
+            }
+            if self.get_half_carry_flag() || reg_a & 0x0f > 0x09 {
+                reg_a = reg_a.wrapping_add(0x06);
+            }
+        } else {
+            if self.get_carry_flag() {
+                reg_a = reg_a.wrapping_sub(0x60);
+            }
+            if self.get_half_carry_flag() {
+                reg_a = reg_a.wrapping_sub(0x06);
+            }
+        }
+
+        self.check_value_for_zero(reg_a);
+        self.clear_half_carry_flag();
+
+        self.write_reg8(Reg8bit::A as usize, reg_a);
+    }
+
     pub fn add_sp_dd(&mut self) -> u16 {
         let addend = (self.memory[(self.pc as usize) - 1] as i8) as i16; //this is a signed number
 
@@ -568,7 +604,7 @@ impl Cpu {
 
     //Rotates value to the left with the carry's value put into bit 0 and bit 7 is put into the carry.
     pub fn rl_n(&mut self, value: u8, check_zero: bool) -> u8 {
-        let carry = self.get_carry_bit();
+        let carry = self.get_carry_flag();
 
         //do the rotation
         let mut ret = value.wrapping_shl(1);
@@ -594,7 +630,7 @@ impl Cpu {
 
     //Rotates value to the right with the carry's value put into bit 7 and bit 0 is put into the carry.
     pub fn rr_n(&mut self, value: u8, check_zero: bool) -> u8 {
-        let carry = self.get_carry_bit();
+        let carry = self.get_carry_flag();
 
         //do the rotation
         let mut ret = value.wrapping_shr(1);
@@ -686,7 +722,7 @@ impl Cpu {
 
     //Carry bit is xored and saved to itself
     pub fn ccf(&mut self) {
-        let carry_flag = self.get_carry_bit();
+        let carry_flag = self.get_carry_flag();
 
         if carry_flag {
             self.clear_carry_flag()
@@ -755,7 +791,7 @@ impl Cpu {
 
     #[inline]
     fn clear_half_carry_flag(&mut self) {
-        self.registers[Reg8bit::F as usize] &= F_HALF_CARRY_SET;
+        self.registers[Reg8bit::F as usize] &= F_HALF_CARRY_CLR;
     }
 
     #[inline]
