@@ -17,7 +17,7 @@ A checklist of all Blargg CPU tests as they are tested and pass.
 - [X] 07-jr,jp,call,ret,rst
 - [X] 08-misc instrs
 - [X] 09-op r,r
-- [ ] 10-bit ops
+- [X] 10-bit ops
 - [ ] 11-op a,(hl)
 
 ## MBC Checklist

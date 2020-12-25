@@ -66,7 +66,7 @@ impl OpcodeTable {
                 Opcode::new(0x37, "SCF".to_string(), 1, 1, Opcode::scf),
                 Opcode::new(0x38, "JR C, i8".to_string(), 1, 2, Opcode::jr_conditional),
                 Opcode::new(0x39, "ADD HL, SP".to_string(), 2, 1, Opcode::add_hl_sp),
-                Opcode::new(0x3A, "LD A, (HL-)".to_string(), 1, 2, Opcode::load_a_hl_dec),
+                Opcode::new(0x3A, "LD A, (HL-)".to_string(), 1, 1, Opcode::load_a_hl_dec),
                 Opcode::new(0x3B, "DEC SP".to_string(), 2, 1, Opcode::dec_sp),
                 Opcode::new(0x3C, "INC A".to_string(), 1, 1, Opcode::inc_r),
                 Opcode::new(0x3D, "DEC a".to_string(), 1, 1, Opcode::dec_r),

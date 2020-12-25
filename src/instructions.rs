@@ -923,7 +923,8 @@ impl Opcode {
 
     pub fn bit_nhl(&self, cpu: &mut Cpu) {
         let bit = self.get_y_bits();
-        let mem = cpu.read_memory(Reg16bit::HL as usize);
+        let mem_index = cpu.read_reg16(Reg16bit::HL as usize) as usize;
+        let mem = cpu.read_memory(mem_index);
 
         cpu.bit_check(mem, bit);
     }
@@ -938,10 +939,11 @@ impl Opcode {
 
     pub fn res_nhl(&self, cpu: &mut Cpu) {
         let bit = self.get_y_bits();
-        let mem = cpu.read_memory(Reg16bit::HL as usize);
+        let mem_index = cpu.read_reg16(Reg16bit::HL as usize) as usize;
+        let mem = cpu.read_memory(mem_index);
 
         let new_value = cpu.bit_clear(mem, bit);
-        cpu.write_memory(Reg16bit::HL as usize, new_value);
+        cpu.write_memory(mem_index, new_value);
     }
 
     pub fn set_nr(&self, cpu: &mut Cpu) {
@@ -955,10 +957,11 @@ impl Opcode {
 
     pub fn set_nhl(&self, cpu: &mut Cpu) {
         let bit = self.get_y_bits();
-        let mem = cpu.read_memory(Reg16bit::HL as usize);
+        let mem_index = cpu.read_reg16(Reg16bit::HL as usize) as usize;
+        let mem = cpu.read_memory(mem_index);
 
         let new_value = cpu.bit_set(mem, bit);
-        cpu.write_memory(Reg16bit::HL as usize, new_value);
+        cpu.write_memory(mem_index, new_value);
     }
 
     #[inline]

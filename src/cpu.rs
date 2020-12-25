@@ -71,7 +71,7 @@ impl Cpu {
 
         //windows.print_log_file(self);
 
-        //incrment pc by the length of instruction.  This will cause pc to be ahead of the instuction currently being executed.
+        //incrment pc by the length of the instruction.  This will cause pc to be ahead of the instuction currently being executed.
         self.pc = self
             .pc
             .wrapping_add(unprifxed_instruct.table[current_opcode].get_length() as u16);
@@ -709,7 +709,7 @@ impl Cpu {
         if (value & (1 << bit)) > 0 {
             self.clear_zero_flag();
         } else {
-            self.clear_zero_flag();
+            self.set_zero_flag();
         }
 
         self.clear_add_sub_flag();
@@ -721,7 +721,7 @@ impl Cpu {
     }
 
     pub fn bit_clear(&mut self, value: u8, bit: u8) -> u8 {
-        value | !(1 << bit)
+        value & !(1 << bit)
     }
 }
 
