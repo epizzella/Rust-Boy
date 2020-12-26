@@ -1,3 +1,5 @@
+use crate::memory_bank_controller::*;
+use crate::rom::*;
 use crate::timer::*;
 use crate::windows_interface::*;
 use crate::{instructions::Opcode, opcode_table::*};
@@ -11,6 +13,7 @@ pub struct Cpu {
     pc: u16,
     timer: Timer,
     //Memory
+    mcb: Mcb,
     memory: [u8; 0x10000],
     ime: bool,
     halt: bool,
@@ -56,15 +59,16 @@ impl Cpu {
             sp: 0xfffe, //Top of stack, stack grows down
             pc: 0x0100, //where rom execution starts after bootstrap
             timer: Timer::new(),
+            mcb: Mcb::new(),
             memory: [0; 0x10000],
             ime: false,
             halt: false,
         };
 
-        cpu.memory[0xff44] = 0x90;
-        cpu.memory[0xff00] = 0x0f; //JOYP register
-        cpu.memory[INTERRUPT_ENABLE_REG] = 0x00;
-        cpu.memory[INTERRUPT_FLAG_REG] = 0xe0;
+        cpu.write_memory(0xff44, 0x90);
+        cpu.write_memory(0xff00, 0x0f);
+        cpu.write_memory(INTERRUPT_ENABLE_REG, 0x00);
+        cpu.write_memory(INTERRUPT_FLAG_REG, 0xe0);
 
         cpu
     }
@@ -75,33 +79,37 @@ impl Cpu {
         prifxed_instruct: &OpcodeTable,
         windows: &mut WindowsInterface,
     ) {
+        //Check for and executes pending interrupts
         self.check_interrupts();
 
-        let mut current_opcode = self.memory[self.pc as usize] as usize;
+        let mut current_opcode = self.read_memory(self.pc as usize) as usize;
         let instruction: &Opcode;
-
-        if current_opcode != 0xCB {
-            instruction = &unprifxed_instruct.table[current_opcode];
-        } else {
-            current_opcode = self.memory[(self.pc - 1) as usize] as usize;
-            instruction = &prifxed_instruct.table[current_opcode];
-        }
-
-        if self.timer.update_timers(instruction.number_of_cycles) {
-            self.set_interrupt_pending(TIMER);
-        }
 
         //windows.print_log_file(self);
 
-        //The cpu can be halted by instruction HALT (0x76), hault resumes if a timer interrupt is depnding
+        //The cpu can be halted by instruction HALT (0x76), the cpu resumes if a timer interrupt is pending
         if self.halt == false || self.get_interrupt_flag(TIMER) {
             //incrment pc by the length of the instruction.  This will cause pc to be ahead of the instuction currently being executed.
             self.pc = self
                 .pc
                 .wrapping_add(unprifxed_instruct.table[current_opcode].get_length() as u16);
 
+            if current_opcode != 0xCB {
+                instruction = &unprifxed_instruct.table[current_opcode];
+            } else {
+                current_opcode = self.read_memory((self.pc - 1) as usize) as usize;
+                instruction = &prifxed_instruct.table[current_opcode];
+            }
+
             //execute the instruction
             (instruction.handler)(&instruction, self);
+        } else {
+            //this is the instriction if the cpu is halted
+            instruction = &unprifxed_instruct.table[current_opcode];
+        }
+
+        if self.timer.update_timers(instruction.number_of_cycles) {
+            self.set_interrupt_pending(TIMER);
         }
     }
 
@@ -171,12 +179,27 @@ impl Cpu {
         self.sp
     }
 
+    //Loads data in the rom buffers
+    pub fn load_read_only_data(&mut self, index: usize, data: u8) {
+        match index {
+            ROM_BANK_00_START..=ROM_BANK_00_END => {
+                self.mcb.write_bank_00(index - ROM_BANK_00_START, data);
+            }
+            ROM_BANK_01_START..=ROM_BANK_01_END => {
+                self.mcb.write_bank_n(index - ROM_BANK_01_START, data);
+            }
+            _ => {}
+        }
+    }
+
     //Write a byte to memory
     #[inline]
     pub fn write_memory(&mut self, index: usize, n: u8) {
         match index {
+            ROM_BANK_00_START..=ROM_BANK_01_END => self.mcb.change_bank(),
+
             TIMER_ADDR_START..=TIMER_ADDR_END => {
-                self.timer.write_memory(index, n);
+                self.timer.write_memory(index - TIMER_ADDR_START, n);
             }
             _ => {
                 self.memory[index] = n;
@@ -188,7 +211,9 @@ impl Cpu {
     #[inline]
     pub fn read_memory(&self, index: usize) -> u8 {
         match index {
-            TIMER_ADDR_START..=TIMER_ADDR_END => self.timer.read_memory(index),
+            ROM_BANK_00_START..=ROM_BANK_00_END => self.mcb.read_bank_00(index - ROM_BANK_00_START),
+            ROM_BANK_01_START..=ROM_BANK_01_END => self.mcb.read_bank_n(index - ROM_BANK_01_START),
+            TIMER_ADDR_START..=TIMER_ADDR_END => self.timer.read_memory(index - TIMER_ADDR_START),
             _ => self.memory[index],
         }
     }
@@ -231,26 +256,28 @@ impl Cpu {
     //push 16bit register onto the stack
     pub fn push_rr(&mut self, reg_16: Reg16bit) {
         self.sp = self.sp.wrapping_sub(1);
-        self.memory[self.sp as usize] = self.registers[reg_16 as usize]; //msb
+        self.write_memory(self.sp as usize, self.registers[reg_16 as usize]); //msb
         self.sp = self.sp.wrapping_sub(1);
-        self.memory[self.sp as usize] = self.registers[(reg_16 as usize) + 1]; //lsb
+        self.write_memory(self.sp as usize, self.registers[(reg_16 as usize) + 1]);
+        //lsb
     }
 
     //push 16bit AF register onto the stack
     pub fn push_af(&mut self) {
         self.sp = self.sp.wrapping_sub(1);
-        self.memory[self.sp as usize] = self.registers[Reg8bit::A as usize]; //Register A
+        self.write_memory(self.sp as usize, self.registers[Reg8bit::A as usize]); //Register A
+
         self.sp = self.sp.wrapping_sub(1);
         //Register F -- bottom four bits are supposed to always be 0
-        self.memory[self.sp as usize] = self.registers[Reg8bit::F as usize] & 0xf0;
+        self.write_memory(self.sp as usize, self.registers[Reg8bit::F as usize] & 0xf0);
     }
 
     //pop 16bit regsiter off of the stack
     pub fn pop_rr(&mut self, reg_16: Reg16bit) {
         self.write_reg16_fast(
             reg_16 as usize,
-            self.memory[self.sp as usize],       //lsb
-            self.memory[(self.sp as usize) + 1], //msb
+            self.read_memory(self.sp as usize),       //lsb
+            self.read_memory((self.sp as usize) + 1), //msb
         );
         self.sp = self.sp.wrapping_add(2);
     }
@@ -260,8 +287,8 @@ impl Cpu {
         //A and F are backwards in the array compared to other 16 bit registers
         self.write_reg16_fast(
             Reg16bit::AF as usize,
-            self.memory[(self.sp as usize) + 1],  //Register A
-            self.memory[self.sp as usize] & 0xf0, //Register F -- bottom four bits are supposed to always be 0
+            self.read_memory((self.sp as usize) + 1), //Register A
+            self.read_memory(self.sp as usize) & 0xf0, //Register F -- bottom four bits are supposed to always be 0
         );
         self.sp = self.sp.wrapping_add(2);
     }
@@ -289,7 +316,7 @@ impl Cpu {
     //add a value from memory to register a
     pub fn add_a_hl(&mut self, add_carry: bool) {
         let mem_index = self.read_reg16(Reg16bit::HL as usize) as usize;
-        let addend = self.memory[mem_index];
+        let addend = self.read_memory(mem_index);
         let carry_flag = self.registers[Reg8bit::F as usize] & F_CARRY_SET > 0;
         let carry_value = (carry_flag && add_carry) as u8;
 
@@ -309,7 +336,7 @@ impl Cpu {
 
     //adds the next value in memory to A
     pub fn add_a_n(&mut self, add_carry: bool) {
-        let addend = self.memory[(self.pc as usize) - 1];
+        let addend = self.read_memory((self.pc as usize) - 1);
         let carry_flag = self.registers[Reg8bit::F as usize] & F_CARRY_SET > 0;
         let carry_value = (carry_flag && add_carry) as u8;
 
@@ -349,7 +376,8 @@ impl Cpu {
     //sub a register to register A
     pub fn sub_a_hl(&mut self, add_barrow: bool) {
         let mem_index = self.read_reg16(Reg16bit::HL as usize) as usize;
-        let subtrahend = self.memory[mem_index];
+
+        let subtrahend = self.read_memory(mem_index);
         let carry_flag = self.registers[Reg8bit::F as usize] & F_CARRY_SET > 0;
         let barrow_value = (carry_flag && add_barrow) as u8;
 
@@ -368,7 +396,7 @@ impl Cpu {
 
     //sub a register to register A
     pub fn sub_a_n(&mut self, add_barrow: bool) {
-        let subtrahend = self.memory[(self.pc as usize) - 1];
+        let subtrahend = self.read_memory((self.pc as usize) - 1);
         let carry_flag = self.registers[Reg8bit::F as usize] & F_CARRY_SET > 0;
         let barrow_value = (carry_flag && add_barrow) as u8;
 
@@ -396,7 +424,7 @@ impl Cpu {
     }
 
     pub fn and_a_n(&mut self) {
-        self.registers[Reg8bit::A as usize] &= self.memory[(self.pc as usize) - 1];
+        self.registers[Reg8bit::A as usize] &= self.read_memory((self.pc as usize) - 1);
 
         self.zero_check_reg(Reg8bit::A as usize);
         self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR;
@@ -406,7 +434,7 @@ impl Cpu {
 
     pub fn and_a_hl(&mut self) {
         let index = self.read_reg16(Reg16bit::HL as usize) as usize;
-        self.registers[Reg8bit::A as usize] &= self.memory[index];
+        self.registers[Reg8bit::A as usize] &= self.read_memory(index);
 
         self.zero_check_reg(Reg8bit::A as usize);
         self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR;
@@ -425,7 +453,7 @@ impl Cpu {
     }
 
     pub fn xor_a_n(&mut self) {
-        self.registers[Reg8bit::A as usize] ^= self.memory[(self.pc as usize) - 1];
+        self.registers[Reg8bit::A as usize] ^= self.read_memory((self.pc as usize) - 1);
 
         self.zero_check_reg(Reg8bit::A as usize);
         self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR;
@@ -435,7 +463,7 @@ impl Cpu {
 
     pub fn xor_a_hl(&mut self) {
         let index = self.read_reg16(Reg16bit::HL as usize) as usize;
-        self.registers[Reg8bit::A as usize] ^= self.memory[index];
+        self.registers[Reg8bit::A as usize] ^= self.read_memory(index);
 
         self.zero_check_reg(Reg8bit::A as usize);
         self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR;
@@ -454,7 +482,7 @@ impl Cpu {
     }
 
     pub fn or_a_n(&mut self) {
-        self.registers[Reg8bit::A as usize] |= self.memory[(self.pc as usize) - 1];
+        self.registers[Reg8bit::A as usize] |= self.read_memory((self.pc as usize) - 1);
 
         self.zero_check_reg(Reg8bit::A as usize);
         self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR;
@@ -464,7 +492,7 @@ impl Cpu {
 
     pub fn or_a_hl(&mut self) {
         let index = self.read_reg16(Reg16bit::HL as usize) as usize;
-        self.registers[Reg8bit::A as usize] |= self.memory[index];
+        self.registers[Reg8bit::A as usize] |= self.read_memory(index);
 
         self.zero_check_reg(Reg8bit::A as usize);
         self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR;
@@ -483,10 +511,13 @@ impl Cpu {
 
     //Increment memory
     pub fn increment_memory(&mut self, memory_index: usize) {
-        self.check_for_half_carry(self.memory[memory_index], 1, 0);
-        self.memory[memory_index] = self.memory[memory_index].wrapping_add(1);
+        let addend = self.read_memory(memory_index);
+        self.check_for_half_carry(addend, 1, 0);
+        let sum = addend.wrapping_add(1);
 
-        self.check_value_for_zero(self.memory[memory_index]);
+        self.check_value_for_zero(sum);
+        self.write_memory(memory_index, sum);
+
         self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR;
     }
 
@@ -501,10 +532,13 @@ impl Cpu {
 
     //Decrement memory
     pub fn decrement_memory(&mut self, memory_index: usize) {
-        self.check_for_half_carry_sub(self.memory[memory_index], 1, 0);
-        self.memory[memory_index] = self.memory[memory_index].wrapping_sub(1);
+        let minuend = self.read_memory(memory_index);
+        self.check_for_half_carry_sub(minuend, 1, 0);
+        let difference = minuend.wrapping_sub(1);
 
-        self.check_value_for_zero(self.memory[memory_index]);
+        self.check_value_for_zero(difference);
+        self.write_memory(memory_index, difference);
+
         self.registers[Reg8bit::F as usize] |= F_Add_SUB_SET;
     }
 
@@ -576,7 +610,7 @@ impl Cpu {
     }
 
     pub fn add_sp_dd(&mut self) -> u16 {
-        let addend = (self.memory[(self.pc as usize) - 1] as i8) as i16; //this is a signed number
+        let addend = (self.read_memory((self.pc as usize) - 1) as i8) as i16; //this is a signed number
 
         //since dd is only 8bit half carry and carry are set as though this is an 8 bit operation
         self.check_for_half_carry(self.sp as u8, addend as u8, 0);
@@ -1043,10 +1077,6 @@ const TIMER_ADDR: u16 = 0x50;
 const SERIAL_ADDR: u16 = 0x58;
 const JOYPAD_ADDR: u16 = 0x60;
 
-const BANK_00_START: usize = 0x0000;
-const BANK_00_END: usize = 0x3fff;
-const BANK_01_START: usize = 0x4000;
-const BANK_01_END: usize = 0x7fff;
 const VRAM_START: usize = 0x8000;
 pub const VRAM_END: usize = 0x9fff;
 const EXTERNAL_RAM_START: usize = 0xa000;

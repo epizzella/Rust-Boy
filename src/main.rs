@@ -1,6 +1,9 @@
 mod cpu;
 mod instructions;
+mod memory_bank_controller;
 mod opcode_table;
+mod rom;
+mod timer;
 mod user_interface;
 mod windows_interface;
 

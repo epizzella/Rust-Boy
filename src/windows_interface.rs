@@ -68,7 +68,8 @@ impl WindowsInterface {
         if buffer_size < VRAM_END {
             //transfer rom into memory
             for i in 0..buffer_size {
-                cpu.write_memory(i, buffer[i]);
+                cpu.load_read_only_data(i, buffer[i]);
+                //cpu.write_memory(i, buffer[i]);
             }
         } else {
             println!("Rom size ({} bytes) greater than end of vram.", buffer_size);

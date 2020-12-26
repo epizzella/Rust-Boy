@@ -25,23 +25,14 @@ impl Timer {
         }
     }
 
-    //Reads the timer regsiters.  If an invalid register is read 0xED is returned
+    //Reads the timer regsiters.
     pub fn read_memory(&self, index: usize) -> u8 {
-        if index >= TIMER_ADDR_START && index <= TIMER_ADDR_END {
-            self.memory_registers[index - TIMER_ADDR_START]
-        } else {
-            println!("Error, timer read index out of bounds!");
-            0xED
-        }
+        self.memory_registers[index]
     }
 
     //Write to the timer registers.
     pub fn write_memory(&mut self, index: usize, value: u8) {
-        if index >= TIMER_ADDR_START && index <= TIMER_ADDR_END {
-            self.memory_registers[index - TIMER_ADDR_START] = value;
-        } else {
-            println!("Error, timer write index out of bounds!")
-        }
+        self.memory_registers[index] = value;
     }
 
     //Returns true if an interrupt occured
