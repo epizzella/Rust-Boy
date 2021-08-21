@@ -1,6 +1,7 @@
 use crate::memory_bank_controller::*;
 use crate::rom::*;
 use crate::timer::*;
+use crate::vram::*;
 use crate::windows_interface::*;
 use crate::{instructions::Opcode, opcode_table::*};
 
@@ -14,6 +15,7 @@ pub struct Cpu {
     timer: Timer,
     //Memory
     mcb: Mcb,
+    vram: Vram,
     memory: [u8; 0x10000],
     ime: bool,
     halt: bool,
@@ -60,6 +62,7 @@ impl Cpu {
             pc: 0x0100, //where rom execution starts after bootstrap
             timer: Timer::new(),
             mcb: Mcb::new(),
+            vram: Vram::new(),
             memory: [0; 0x10000],
             ime: false,
             halt: false,
@@ -183,10 +186,10 @@ impl Cpu {
     pub fn load_read_only_data(&mut self, index: usize, data: u8) {
         match index {
             ROM_BANK_00_START..=ROM_BANK_00_END => {
-                self.mcb.write_bank_00(index - ROM_BANK_00_START, data);
+                self.mcb.write_bank_00(index, data);
             }
             ROM_BANK_01_START..=ROM_BANK_01_END => {
-                self.mcb.write_bank_n(index - ROM_BANK_01_START, data);
+                self.mcb.write_bank_n(index, data);
             }
             _ => {}
         }
@@ -196,10 +199,11 @@ impl Cpu {
     #[inline]
     pub fn write_memory(&mut self, index: usize, n: u8) {
         match index {
+            //Writes done to this section of read only memroy are used to update control registers of the memory bank controller
             ROM_BANK_00_START..=ROM_BANK_01_END => self.mcb.change_bank(),
 
             TIMER_ADDR_START..=TIMER_ADDR_END => {
-                self.timer.write_memory(index - TIMER_ADDR_START, n);
+                self.timer.write_memory(index, n);
             }
             _ => {
                 self.memory[index] = n;
@@ -211,9 +215,10 @@ impl Cpu {
     #[inline]
     pub fn read_memory(&self, index: usize) -> u8 {
         match index {
-            ROM_BANK_00_START..=ROM_BANK_00_END => self.mcb.read_bank_00(index - ROM_BANK_00_START),
-            ROM_BANK_01_START..=ROM_BANK_01_END => self.mcb.read_bank_n(index - ROM_BANK_01_START),
-            TIMER_ADDR_START..=TIMER_ADDR_END => self.timer.read_memory(index - TIMER_ADDR_START),
+            ROM_BANK_00_START..=ROM_BANK_00_END => self.mcb.read_bank_00(index),
+            ROM_BANK_01_START..=ROM_BANK_01_END => self.mcb.read_bank_n(index),
+            TIMER_ADDR_START..=TIMER_ADDR_END => self.timer.read_memory(index),
+            VRAM_START..=VRAM_END => self.vram.read_vram(index),
             _ => self.memory[index],
         }
     }
@@ -242,7 +247,7 @@ impl Cpu {
 
     #[inline]
     pub fn get_add_sub_flag(&self) -> bool {
-        (self.registers[Reg8bit::F as usize] & F_Add_SUB_SET) > 0
+        (self.registers[Reg8bit::F as usize] & F_ADD_SUB_SET) > 0
     }
 
     pub fn enable_interupts(&mut self) {
@@ -310,7 +315,7 @@ impl Cpu {
         self.zero_check_reg(Reg8bit::A as usize);
 
         //set the add/sub flag
-        self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR;
+        self.registers[Reg8bit::F as usize] &= F_ADD_SUB_CLR;
     }
 
     //add a value from memory to register a
@@ -331,7 +336,7 @@ impl Cpu {
         self.zero_check_reg(Reg8bit::A as usize);
 
         //set the add/sub flag
-        self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR;
+        self.registers[Reg8bit::F as usize] &= F_ADD_SUB_CLR;
     }
 
     //adds the next value in memory to A
@@ -351,7 +356,7 @@ impl Cpu {
         self.zero_check_reg(Reg8bit::A as usize);
 
         //set the add/sub flag
-        self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR;
+        self.registers[Reg8bit::F as usize] &= F_ADD_SUB_CLR;
     }
 
     //sub a register to register A
@@ -370,7 +375,7 @@ impl Cpu {
 
         self.zero_check_reg(Reg8bit::A as usize);
 
-        self.registers[Reg8bit::F as usize] |= F_Add_SUB_SET;
+        self.registers[Reg8bit::F as usize] |= F_ADD_SUB_SET;
     }
 
     //sub a register to register A
@@ -391,7 +396,7 @@ impl Cpu {
 
         self.zero_check_reg(Reg8bit::A as usize);
 
-        self.registers[Reg8bit::F as usize] |= F_Add_SUB_SET;
+        self.registers[Reg8bit::F as usize] |= F_ADD_SUB_SET;
     }
 
     //sub a register to register A
@@ -410,7 +415,7 @@ impl Cpu {
 
         self.zero_check_reg(Reg8bit::A as usize);
 
-        self.registers[Reg8bit::F as usize] |= F_Add_SUB_SET;
+        self.registers[Reg8bit::F as usize] |= F_ADD_SUB_SET;
     }
 
     //and a register with Regsiter A
@@ -418,7 +423,7 @@ impl Cpu {
         self.registers[Reg8bit::A as usize] &= self.registers[reg_index];
 
         self.zero_check_reg(Reg8bit::A as usize);
-        self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR;
+        self.registers[Reg8bit::F as usize] &= F_ADD_SUB_CLR;
         self.registers[Reg8bit::F as usize] |= F_HALF_CARRY_SET;
         self.registers[Reg8bit::F as usize] &= F_CARRY_CLR;
     }
@@ -427,7 +432,7 @@ impl Cpu {
         self.registers[Reg8bit::A as usize] &= self.read_memory((self.pc as usize) - 1);
 
         self.zero_check_reg(Reg8bit::A as usize);
-        self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR;
+        self.registers[Reg8bit::F as usize] &= F_ADD_SUB_CLR;
         self.registers[Reg8bit::F as usize] |= F_HALF_CARRY_SET;
         self.registers[Reg8bit::F as usize] &= F_CARRY_CLR;
     }
@@ -437,7 +442,7 @@ impl Cpu {
         self.registers[Reg8bit::A as usize] &= self.read_memory(index);
 
         self.zero_check_reg(Reg8bit::A as usize);
-        self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR;
+        self.registers[Reg8bit::F as usize] &= F_ADD_SUB_CLR;
         self.registers[Reg8bit::F as usize] |= F_HALF_CARRY_SET;
         self.registers[Reg8bit::F as usize] &= F_CARRY_CLR;
     }
@@ -447,7 +452,7 @@ impl Cpu {
         self.registers[Reg8bit::A as usize] ^= self.registers[reg_index];
 
         self.zero_check_reg(Reg8bit::A as usize);
-        self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR;
+        self.registers[Reg8bit::F as usize] &= F_ADD_SUB_CLR;
         self.registers[Reg8bit::F as usize] &= F_HALF_CARRY_CLR;
         self.registers[Reg8bit::F as usize] &= F_CARRY_CLR;
     }
@@ -456,7 +461,7 @@ impl Cpu {
         self.registers[Reg8bit::A as usize] ^= self.read_memory((self.pc as usize) - 1);
 
         self.zero_check_reg(Reg8bit::A as usize);
-        self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR;
+        self.registers[Reg8bit::F as usize] &= F_ADD_SUB_CLR;
         self.registers[Reg8bit::F as usize] &= F_HALF_CARRY_CLR;
         self.registers[Reg8bit::F as usize] &= F_CARRY_CLR;
     }
@@ -466,7 +471,7 @@ impl Cpu {
         self.registers[Reg8bit::A as usize] ^= self.read_memory(index);
 
         self.zero_check_reg(Reg8bit::A as usize);
-        self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR;
+        self.registers[Reg8bit::F as usize] &= F_ADD_SUB_CLR;
         self.registers[Reg8bit::F as usize] &= F_HALF_CARRY_CLR;
         self.registers[Reg8bit::F as usize] &= F_CARRY_CLR;
     }
@@ -476,7 +481,7 @@ impl Cpu {
         self.registers[Reg8bit::A as usize] |= self.registers[reg_index];
 
         self.zero_check_reg(Reg8bit::A as usize);
-        self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR;
+        self.registers[Reg8bit::F as usize] &= F_ADD_SUB_CLR;
         self.registers[Reg8bit::F as usize] &= F_HALF_CARRY_CLR;
         self.registers[Reg8bit::F as usize] &= F_CARRY_CLR;
     }
@@ -485,7 +490,7 @@ impl Cpu {
         self.registers[Reg8bit::A as usize] |= self.read_memory((self.pc as usize) - 1);
 
         self.zero_check_reg(Reg8bit::A as usize);
-        self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR;
+        self.registers[Reg8bit::F as usize] &= F_ADD_SUB_CLR;
         self.registers[Reg8bit::F as usize] &= F_HALF_CARRY_CLR;
         self.registers[Reg8bit::F as usize] &= F_CARRY_CLR;
     }
@@ -495,7 +500,7 @@ impl Cpu {
         self.registers[Reg8bit::A as usize] |= self.read_memory(index);
 
         self.zero_check_reg(Reg8bit::A as usize);
-        self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR;
+        self.registers[Reg8bit::F as usize] &= F_ADD_SUB_CLR;
         self.registers[Reg8bit::F as usize] &= F_HALF_CARRY_CLR;
         self.registers[Reg8bit::F as usize] &= F_CARRY_CLR;
     }
@@ -506,7 +511,7 @@ impl Cpu {
         self.registers[y] = self.registers[y].wrapping_add(1);
 
         self.zero_check_reg(y);
-        self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR;
+        self.registers[Reg8bit::F as usize] &= F_ADD_SUB_CLR;
     }
 
     //Increment memory
@@ -518,7 +523,7 @@ impl Cpu {
         self.check_value_for_zero(sum);
         self.write_memory(memory_index, sum);
 
-        self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR;
+        self.registers[Reg8bit::F as usize] &= F_ADD_SUB_CLR;
     }
 
     //Decrement register
@@ -527,7 +532,7 @@ impl Cpu {
         self.registers[y] = self.registers[y].wrapping_sub(1);
 
         self.zero_check_reg(y);
-        self.registers[Reg8bit::F as usize] |= F_Add_SUB_SET;
+        self.registers[Reg8bit::F as usize] |= F_ADD_SUB_SET;
     }
 
     //Decrement memory
@@ -539,13 +544,13 @@ impl Cpu {
         self.check_value_for_zero(difference);
         self.write_memory(memory_index, difference);
 
-        self.registers[Reg8bit::F as usize] |= F_Add_SUB_SET;
+        self.registers[Reg8bit::F as usize] |= F_ADD_SUB_SET;
     }
 
     //flip the bits in register A
     pub fn complement_a(&mut self) {
         self.registers[Reg8bit::A as usize] ^= 0xff;
-        self.registers[Reg8bit::F as usize] |= F_Add_SUB_SET;
+        self.registers[Reg8bit::F as usize] |= F_ADD_SUB_SET;
         self.registers[Reg8bit::F as usize] |= F_HALF_CARRY_SET;
     }
 
@@ -559,7 +564,7 @@ impl Cpu {
 
         self.write_reg16(Reg16bit::HL as usize, sum);
 
-        self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR;
+        self.registers[Reg8bit::F as usize] &= F_ADD_SUB_CLR;
     }
 
     pub fn add_hl_sp(&mut self) {
@@ -572,7 +577,7 @@ impl Cpu {
 
         self.write_reg16(Reg16bit::HL as usize, sum);
 
-        self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR;
+        self.registers[Reg8bit::F as usize] &= F_ADD_SUB_CLR;
     }
 
     pub fn increment_sp(&mut self) {
@@ -619,7 +624,7 @@ impl Cpu {
         let sum = (self.sp as i16).wrapping_add(addend) as u16; // do the math
 
         self.registers[Reg8bit::F as usize] &= F_ZERO_CLR;
-        self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR;
+        self.registers[Reg8bit::F as usize] &= F_ADD_SUB_CLR;
 
         sum
     }
@@ -640,7 +645,7 @@ impl Cpu {
             self.registers[Reg8bit::F as usize] &= F_ZERO_CLR
         }
 
-        self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR & F_HALF_CARRY_CLR;
+        self.registers[Reg8bit::F as usize] &= F_ADD_SUB_CLR & F_HALF_CARRY_CLR;
 
         value
     }
@@ -661,7 +666,7 @@ impl Cpu {
             self.registers[Reg8bit::F as usize] &= F_ZERO_CLR
         }
 
-        self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR & F_HALF_CARRY_CLR;
+        self.registers[Reg8bit::F as usize] &= F_ADD_SUB_CLR & F_HALF_CARRY_CLR;
 
         value
     }
@@ -687,7 +692,7 @@ impl Cpu {
             self.registers[Reg8bit::F as usize] &= F_ZERO_CLR
         }
 
-        self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR & F_HALF_CARRY_CLR;
+        self.registers[Reg8bit::F as usize] &= F_ADD_SUB_CLR & F_HALF_CARRY_CLR;
 
         ret
     }
@@ -713,7 +718,7 @@ impl Cpu {
             self.registers[Reg8bit::F as usize] &= F_ZERO_CLR
         }
 
-        self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR & F_HALF_CARRY_CLR;
+        self.registers[Reg8bit::F as usize] &= F_ADD_SUB_CLR & F_HALF_CARRY_CLR;
 
         ret
     }
@@ -730,7 +735,7 @@ impl Cpu {
             self.clear_carry_flag();
         }
 
-        self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR & F_HALF_CARRY_CLR;
+        self.registers[Reg8bit::F as usize] &= F_ADD_SUB_CLR & F_HALF_CARRY_CLR;
 
         ret
     }
@@ -739,7 +744,7 @@ impl Cpu {
         let new_upper = value.wrapping_shl(4);
         let new_lower = value.wrapping_shr(4);
 
-        self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR & F_HALF_CARRY_CLR & F_CARRY_CLR;
+        self.registers[Reg8bit::F as usize] &= F_ADD_SUB_CLR & F_HALF_CARRY_CLR & F_CARRY_CLR;
 
         let ret = new_upper | new_lower;
         self.zero_check_u8(ret);
@@ -764,7 +769,7 @@ impl Cpu {
             self.clear_carry_flag();
         }
 
-        self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR & F_HALF_CARRY_CLR;
+        self.registers[Reg8bit::F as usize] &= F_ADD_SUB_CLR & F_HALF_CARRY_CLR;
         ret
     }
 
@@ -780,7 +785,7 @@ impl Cpu {
             self.clear_carry_flag();
         }
 
-        self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR & F_HALF_CARRY_CLR;
+        self.registers[Reg8bit::F as usize] &= F_ADD_SUB_CLR & F_HALF_CARRY_CLR;
         v
     }
 
@@ -924,12 +929,12 @@ impl Cpu {
 
     #[inline]
     fn set_add_sub_flag(&mut self) {
-        self.registers[Reg8bit::F as usize] |= F_Add_SUB_SET;
+        self.registers[Reg8bit::F as usize] |= F_ADD_SUB_SET;
     }
 
     #[inline]
     fn clear_add_sub_flag(&mut self) {
-        self.registers[Reg8bit::F as usize] &= F_Add_SUB_CLR;
+        self.registers[Reg8bit::F as usize] &= F_ADD_SUB_CLR;
     }
 
     //checks if register A is equal to zero and sets the zero flag in register F if true
@@ -1056,12 +1061,12 @@ impl Cpu {
 }
 
 const F_ZERO_SET: u8 = 0x80; //1000 0000
-const F_Add_SUB_SET: u8 = 0x40; //0100 0000
+const F_ADD_SUB_SET: u8 = 0x40; //0100 0000
 const F_HALF_CARRY_SET: u8 = 0x20; //0010 0000
 const F_CARRY_SET: u8 = 0x10; //0001 0000
 
 const F_ZERO_CLR: u8 = 0x7f; //0111 1111
-const F_Add_SUB_CLR: u8 = 0xbf; //1011 1111
+const F_ADD_SUB_CLR: u8 = 0xbf; //1011 1111
 const F_HALF_CARRY_CLR: u8 = 0xdf; //1101 1111
 const F_CARRY_CLR: u8 = 0xef; //1110 1111
 
@@ -1077,8 +1082,6 @@ const TIMER_ADDR: u16 = 0x50;
 const SERIAL_ADDR: u16 = 0x58;
 const JOYPAD_ADDR: u16 = 0x60;
 
-const VRAM_START: usize = 0x8000;
-pub const VRAM_END: usize = 0x9fff;
 const EXTERNAL_RAM_START: usize = 0xa000;
 const EXTERNAL_RAM_END: usize = 0xbfff;
 const WRAM_BANK_0_START: usize = 0xc000;

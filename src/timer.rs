@@ -12,7 +12,7 @@ pub struct Timer {
     div_prescaler: u8,
     update_source: u8,
     //0xff04 - 0xff07
-    memory_registers: [u8; 4],
+    memory_registers: [u8; TIMER_ADDR_END - TIMER_ADDR_START + 1],
 }
 
 impl Timer {
@@ -27,12 +27,12 @@ impl Timer {
 
     //Reads the timer regsiters.
     pub fn read_memory(&self, index: usize) -> u8 {
-        self.memory_registers[index]
+        self.memory_registers[index - TIMER_ADDR_START]
     }
 
     //Write to the timer registers.
     pub fn write_memory(&mut self, index: usize, value: u8) {
-        self.memory_registers[index] = value;
+        self.memory_registers[index - TIMER_ADDR_START] = value;
     }
 
     //Returns true if an interrupt occured
@@ -74,6 +74,7 @@ impl Timer {
                 }
             }
         }
+        //return
         interrupt_request
     }
 }

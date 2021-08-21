@@ -7,6 +7,7 @@ use std::{
 };
 
 use crate::cpu::*;
+use crate::vram::*;
 
 pub struct WindowsInterface {
     buff: BufWriter<File>,
@@ -14,19 +15,19 @@ pub struct WindowsInterface {
 
 impl WindowsInterface {
     pub fn new() -> Self {
-        let path = Path::new("DMG_log.txt");
-        let f: File;
+        let log_path = Path::new("DMG_log.txt");
+        let log_file: File;
 
-        if path.exists() {
-            f = OpenOptions::new()
+        if log_path.exists() {
+            log_file = OpenOptions::new()
                 .append(true)
-                .open(path)
+                .open(log_path)
                 .expect("Cannot open file");
         } else {
-            f = File::create("DMG_log.txt").expect("Unable to create file");
+            log_file = File::create("DMG_log.txt").expect("Unable to create file");
         }
 
-        let buffer = BufWriter::new(f);
+        let buffer = BufWriter::new(log_file);
 
         Self { buff: buffer }
     }
@@ -69,7 +70,6 @@ impl WindowsInterface {
             //transfer rom into memory
             for i in 0..buffer_size {
                 cpu.load_read_only_data(i, buffer[i]);
-                //cpu.write_memory(i, buffer[i]);
             }
         } else {
             println!("Rom size ({} bytes) greater than end of vram.", buffer_size);
