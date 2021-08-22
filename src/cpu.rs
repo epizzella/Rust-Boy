@@ -1,4 +1,5 @@
 use crate::memory_bank_controller::*;
+use crate::ppu::*;
 use crate::rom::*;
 use crate::timer::*;
 use crate::vram::*;
@@ -15,7 +16,7 @@ pub struct Cpu {
     timer: Timer,
     //Memory
     mcb: Mcb,
-    vram: Vram,
+    lcd: Lcd,
     memory: [u8; 0x10000],
     ime: bool,
     halt: bool,
@@ -62,13 +63,13 @@ impl Cpu {
             pc: 0x0100, //where rom execution starts after bootstrap
             timer: Timer::new(),
             mcb: Mcb::new(),
-            vram: Vram::new(),
+            lcd: Lcd::new(),
             memory: [0; 0x10000],
             ime: false,
             halt: false,
         };
 
-        cpu.write_memory(0xff44, 0x90);
+        cpu.write_memory(LCD_Y_REG, 0x90);
         cpu.write_memory(0xff00, 0x0f);
         cpu.write_memory(INTERRUPT_ENABLE_REG, 0x00);
         cpu.write_memory(INTERRUPT_FLAG_REG, 0xe0);
@@ -137,8 +138,7 @@ impl Cpu {
     //read 16 bit register
     #[inline]
     pub fn read_reg16(&self, reg_16: usize) -> u16 {
-        let reg: u16 =
-            ((self.registers[reg_16] as u16) << 8) | (self.registers[reg_16 as usize + 1] as u16);
+        let reg: u16 = ((self.registers[reg_16] as u16) << 8) | (self.registers[reg_16 as usize + 1] as u16);
         reg
     }
 
@@ -199,15 +199,12 @@ impl Cpu {
     #[inline]
     pub fn write_memory(&mut self, index: usize, n: u8) {
         match index {
-            //Writes done to this section of read only memroy are used to update control registers of the memory bank controller
+            //Writes to this section of read only memory are used to update control registers of the memory bank controller
             ROM_BANK_00_START..=ROM_BANK_01_END => self.mcb.change_bank(),
-
-            TIMER_ADDR_START..=TIMER_ADDR_END => {
-                self.timer.write_memory(index, n);
-            }
-            _ => {
-                self.memory[index] = n;
-            }
+            TIMER_ADDR_START..=TIMER_ADDR_END => self.timer.write_memory(index, n),
+            VRAM_START..=VRAM_END => self.lcd.write_vram(index, n),
+            LCD_ADDR_START..=LCD_ADDR_END => self.lcd.write_register(index, n),
+            _ => self.memory[index] = n,
         }
     }
 
@@ -218,7 +215,8 @@ impl Cpu {
             ROM_BANK_00_START..=ROM_BANK_00_END => self.mcb.read_bank_00(index),
             ROM_BANK_01_START..=ROM_BANK_01_END => self.mcb.read_bank_n(index),
             TIMER_ADDR_START..=TIMER_ADDR_END => self.timer.read_memory(index),
-            VRAM_START..=VRAM_END => self.vram.read_vram(index),
+            VRAM_START..=VRAM_END => self.lcd.read_vram(index),
+            LCD_ADDR_START..=LCD_ADDR_END => self.lcd.read_register(index),
             _ => self.memory[index],
         }
     }
@@ -292,7 +290,7 @@ impl Cpu {
         //A and F are backwards in the array compared to other 16 bit registers
         self.write_reg16_fast(
             Reg16bit::AF as usize,
-            self.read_memory((self.sp as usize) + 1), //Register A
+            self.read_memory((self.sp as usize) + 1),  //Register A
             self.read_memory(self.sp as usize) & 0xf0, //Register F -- bottom four bits are supposed to always be 0
         );
         self.sp = self.sp.wrapping_add(2);
@@ -876,6 +874,7 @@ impl Cpu {
                 self.call(JOYPAD_ADDR);
             }
 
+            //clear the flag
             self.write_memory(INTERRUPT_FLAG_REG, interrupt_flag);
         }
     }

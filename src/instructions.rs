@@ -16,13 +16,7 @@ pub struct Opcode {
 //For information on the implementation of these opcodes please see Chapter 2 of Game Boy: Complete Technical Reference
 
 impl Opcode {
-    pub fn new(
-        opcode: u8,
-        opcode_name: String,
-        cycles: u8,
-        bytes: u8,
-        function: fn(&Self, &mut Cpu),
-    ) -> Self {
+    pub fn new(opcode: u8, opcode_name: String, cycles: u8, bytes: u8, function: fn(&Self, &mut Cpu)) -> Self {
         let test_opcode = Self {
             opcode_name: opcode_name,
             opcode_byte: opcode,
@@ -213,11 +207,7 @@ impl Opcode {
     //0b00000001 + LSB of nn + MSB of nn
     pub fn load_bc_nn(&self, cpu: &mut Cpu) {
         let pc = cpu.read_pc() as usize;
-        cpu.write_reg16_fast(
-            Reg16bit::BC as usize,
-            cpu.read_memory(pc - 2),
-            cpu.read_memory(pc - 1),
-        )
+        cpu.write_reg16_fast(Reg16bit::BC as usize, cpu.read_memory(pc - 2), cpu.read_memory(pc - 1))
     }
 
     //16-bit load instructions transfer two bytes of data between one 16-bit register
@@ -225,11 +215,7 @@ impl Opcode {
     //0b00010001 + LSB of nn + MSB of nn
     pub fn load_de_nn(&self, cpu: &mut Cpu) {
         let pc = cpu.read_pc() as usize;
-        cpu.write_reg16_fast(
-            Reg16bit::DE as usize,
-            cpu.read_memory(pc - 2),
-            cpu.read_memory(pc - 1),
-        )
+        cpu.write_reg16_fast(Reg16bit::DE as usize, cpu.read_memory(pc - 2), cpu.read_memory(pc - 1))
     }
 
     //16-bit load instructions transfer two bytes of data between one 16-bit register
@@ -237,11 +223,7 @@ impl Opcode {
     //0b00100001 + LSB of nn + MSB of nn
     pub fn load_hl_nn(&self, cpu: &mut Cpu) {
         let pc = cpu.read_pc() as usize;
-        cpu.write_reg16_fast(
-            Reg16bit::HL as usize,
-            cpu.read_memory(pc - 2),
-            cpu.read_memory(pc - 1),
-        )
+        cpu.write_reg16_fast(Reg16bit::HL as usize, cpu.read_memory(pc - 2), cpu.read_memory(pc - 1))
     }
 
     //16-bit load instructions transfer two bytes of data between one 16-bit register

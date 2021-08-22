@@ -13,8 +13,6 @@ mod windows_interface;
 
 use crate::cpu::*;
 use opcode_table::OpcodeTable;
-//use std::env;
-use ppu::*;
 use windows_interface::*;
 
 fn main() {
